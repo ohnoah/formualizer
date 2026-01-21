@@ -804,6 +804,606 @@ impl Function for Log10Fn {
     }
 }
 
+/* ───────────────────── QUOTIENT, MROUND, EVEN, ODD, SUMSQ ───────────────────── */
+
+#[derive(Debug)]
+pub struct QuotientFn; // QUOTIENT(numerator, denominator) - integer portion of division
+impl Function for QuotientFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "QUOTIENT"
+    }
+    fn min_args(&self) -> usize {
+        2
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_TWO[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let numer = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        let denom = match args[1].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        if denom == 0.0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::from_error_string("#DIV/0!"),
+            )));
+        }
+        let result = (numer / denom).trunc();
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+#[derive(Debug)]
+pub struct MroundFn; // MROUND(number, multiple) - round to nearest multiple
+impl Function for MroundFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "MROUND"
+    }
+    fn min_args(&self) -> usize {
+        2
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_TWO[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let n = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        let mult = match args[1].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        if mult == 0.0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(0.0)));
+        }
+        // Excel returns #NUM! if number and multiple have different signs
+        if (n > 0.0 && mult < 0.0) || (n < 0.0 && mult > 0.0) {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        let result = (n / mult).round() * mult;
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+#[derive(Debug)]
+pub struct EvenFn; // EVEN(number) - rounds up to nearest even integer
+impl Function for EvenFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "EVEN"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let n = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        // EVEN rounds away from zero to the nearest even integer
+        let result = if n >= 0.0 {
+            let ceil = n.ceil();
+            if ceil as i64 % 2 == 0 {
+                ceil
+            } else {
+                ceil + 1.0
+            }
+        } else {
+            let floor = n.floor();
+            if floor as i64 % 2 == 0 {
+                floor
+            } else {
+                floor - 1.0
+            }
+        };
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+#[derive(Debug)]
+pub struct OddFn; // ODD(number) - rounds up to nearest odd integer
+impl Function for OddFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "ODD"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let n = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        // ODD rounds away from zero to the nearest odd integer
+        let result = if n == 0.0 {
+            1.0
+        } else if n > 0.0 {
+            let ceil = n.ceil();
+            if ceil as i64 % 2 != 0 {
+                ceil
+            } else {
+                ceil + 1.0
+            }
+        } else {
+            let floor = n.floor();
+            if floor as i64 % 2 != 0 {
+                floor
+            } else {
+                floor - 1.0
+            }
+        };
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+#[derive(Debug)]
+pub struct SumsqFn; // SUMSQ(number1, [number2], ...) - sum of squares
+impl Function for SumsqFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "SUMSQ"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let mut sum = 0.0;
+        for arg in args {
+            let val = arg.value()?;
+            match val {
+                crate::traits::CalcValue::Scalar(lit) => {
+                    match lit {
+                        LiteralValue::Error(e) => {
+                            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+                        }
+                        LiteralValue::Empty => {} // skip empty
+                        other => {
+                            let n = coerce_num(&other)?;
+                            sum += n * n;
+                        }
+                    }
+                }
+                crate::traits::CalcValue::Range(range) => {
+                    let (rows, cols) = range.dims();
+                    for r in 0..rows {
+                        for c in 0..cols {
+                            let cell = range.get_cell(r, c);
+                            match &cell {
+                                LiteralValue::Error(e) => {
+                                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e.clone())));
+                                }
+                                LiteralValue::Empty | LiteralValue::Text(_) | LiteralValue::Boolean(_) => {
+                                    // Skip non-numeric in ranges
+                                }
+                                other => {
+                                    if let Ok(n) = coerce_num(other) {
+                                        sum += n * n;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(sum)))
+    }
+}
+
+/* ───────────────────── SQRTPI, MULTINOMIAL, SERIESSUM, ROMAN, ARABIC ───────────────────── */
+
+#[derive(Debug)]
+pub struct SqrtPiFn; // SQRTPI(number) - square root of number * PI
+impl Function for SqrtPiFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "SQRTPI"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let n = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        if n < 0.0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(
+            (n * std::f64::consts::PI).sqrt(),
+        )))
+    }
+}
+
+#[derive(Debug)]
+pub struct MultinomialFn; // MULTINOMIAL(number1, [number2], ...) - multinomial coefficient
+impl Function for MultinomialFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "MULTINOMIAL"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let mut nums = Vec::new();
+        for arg in args {
+            let val = arg.value()?;
+            match val {
+                crate::traits::CalcValue::Scalar(lit) => {
+                    match lit {
+                        LiteralValue::Error(e) => {
+                            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+                        }
+                        other => {
+                            let n = coerce_num(&other)?;
+                            if n < 0.0 || n.fract() != 0.0 {
+                                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                                    ExcelError::new_num(),
+                                )));
+                            }
+                            nums.push(n as u64);
+                        }
+                    }
+                }
+                crate::traits::CalcValue::Range(range) => {
+                    let (rows, cols) = range.dims();
+                    for r in 0..rows {
+                        for c in 0..cols {
+                            let cell = range.get_cell(r, c);
+                            match &cell {
+                                LiteralValue::Error(e) => {
+                                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e.clone())));
+                                }
+                                other => {
+                                    if let Ok(n) = coerce_num(other) {
+                                        if n < 0.0 || n.fract() != 0.0 {
+                                            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                                                ExcelError::new_num(),
+                                            )));
+                                        }
+                                        nums.push(n as u64);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Calculate multinomial: (sum)! / (n1! * n2! * ... * nk!)
+        let sum: u64 = nums.iter().sum();
+        let mut result = 1.0f64;
+        let mut remaining = sum;
+        for &n in &nums {
+            // Calculate C(remaining, n) and multiply
+            for i in 0..n {
+                result *= (remaining - i) as f64 / (i + 1) as f64;
+            }
+            remaining -= n;
+        }
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result.round())))
+    }
+}
+
+#[derive(Debug)]
+pub struct SeriesSumFn; // SERIESSUM(x, n, m, coefficients)
+impl Function for SeriesSumFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "SERIESSUM"
+    }
+    fn min_args(&self) -> usize {
+        4
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use std::sync::LazyLock;
+        static SCHEMA: LazyLock<Vec<ArgSchema>> = LazyLock::new(|| {
+            vec![
+                ArgSchema::number_lenient_scalar(),
+                ArgSchema::number_lenient_scalar(),
+                ArgSchema::number_lenient_scalar(),
+                ArgSchema::any(), // coefficients can be array/range
+            ]
+        });
+        &SCHEMA[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let x = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        let n = match args[1].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+        let m = match args[2].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+
+        // Get coefficients from the 4th argument
+        let mut coeffs = Vec::new();
+        let val = args[3].value()?;
+        match val {
+            crate::traits::CalcValue::Scalar(lit) => {
+                match lit {
+                    LiteralValue::Error(e) => {
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+                    }
+                    LiteralValue::Array(arr) => {
+                        for row in arr {
+                            for cell in row {
+                                coeffs.push(coerce_num(&cell)?);
+                            }
+                        }
+                    }
+                    other => {
+                        coeffs.push(coerce_num(&other)?);
+                    }
+                }
+            }
+            crate::traits::CalcValue::Range(range) => {
+                let (rows, cols) = range.dims();
+                for r in 0..rows {
+                    for c in 0..cols {
+                        let cell = range.get_cell(r, c);
+                        match &cell {
+                            LiteralValue::Error(e) => {
+                                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e.clone())));
+                            }
+                            other => {
+                                coeffs.push(coerce_num(other)?);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Calculate series: sum of (coeff[i] * x^(n + i*m))
+        let mut sum = 0.0;
+        for (i, &coeff) in coeffs.iter().enumerate() {
+            let power = n + (i as f64) * m;
+            sum += coeff * x.powf(power);
+        }
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(sum)))
+    }
+}
+
+#[derive(Debug)]
+pub struct RomanFn; // ROMAN(number, [form])
+impl Function for RomanFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "ROMAN"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_NUM_LENIENT_TWO[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let num = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?.trunc() as i32,
+        };
+
+        if num < 0 || num > 3999 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_value(),
+            )));
+        }
+        if num == 0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Text(String::new())));
+        }
+
+        // Classic Roman numerals (form 0)
+        let roman_pairs = [
+            (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+            (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+            (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+        ];
+
+        let mut result = String::new();
+        let mut n = num;
+        for &(value, numeral) in &roman_pairs {
+            while n >= value {
+                result.push_str(numeral);
+                n -= value;
+            }
+        }
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Text(result)))
+    }
+}
+
+#[derive(Debug)]
+pub struct ArabicFn; // ARABIC(text) - converts Roman to Arabic number
+impl Function for ArabicFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "ARABIC"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use std::sync::LazyLock;
+        static SCHEMA: LazyLock<Vec<ArgSchema>> = LazyLock::new(|| {
+            vec![ArgSchema::any()]
+        });
+        &SCHEMA[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let text = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            LiteralValue::Text(s) => s.to_uppercase(),
+            LiteralValue::Empty => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(0.0)));
+            }
+            _ => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new_value(),
+                )));
+            }
+        };
+
+        if text.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(0.0)));
+        }
+
+        let roman_values = |c: char| -> Option<i32> {
+            match c {
+                'I' => Some(1),
+                'V' => Some(5),
+                'X' => Some(10),
+                'L' => Some(50),
+                'C' => Some(100),
+                'D' => Some(500),
+                'M' => Some(1000),
+                _ => None,
+            }
+        };
+
+        // Handle negative (leading -)
+        let (is_negative, text) = if text.starts_with('-') {
+            (true, &text[1..])
+        } else {
+            (false, text.as_str())
+        };
+
+        let mut total: i32 = 0;
+        let mut prev_value: i32 = 0;
+
+        for c in text.chars().rev() {
+            match roman_values(c) {
+                Some(val) => {
+                    if val < prev_value {
+                        total -= val;
+                    } else {
+                        total += val;
+                    }
+                    prev_value = val;
+                }
+                None => {
+                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                        ExcelError::new_value(),
+                    )));
+                }
+            }
+        }
+
+        if is_negative {
+            total = -total;
+        }
+
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(total as f64)))
+    }
+}
+
 pub fn register_builtins() {
     use std::sync::Arc;
     crate::function_registry::register_function(Arc::new(AbsFn));
@@ -824,6 +1424,16 @@ pub fn register_builtins() {
     crate::function_registry::register_function(Arc::new(LnFn));
     crate::function_registry::register_function(Arc::new(LogFn));
     crate::function_registry::register_function(Arc::new(Log10Fn));
+    crate::function_registry::register_function(Arc::new(QuotientFn));
+    crate::function_registry::register_function(Arc::new(MroundFn));
+    crate::function_registry::register_function(Arc::new(EvenFn));
+    crate::function_registry::register_function(Arc::new(OddFn));
+    crate::function_registry::register_function(Arc::new(SumsqFn));
+    crate::function_registry::register_function(Arc::new(SqrtPiFn));
+    crate::function_registry::register_function(Arc::new(MultinomialFn));
+    crate::function_registry::register_function(Arc::new(SeriesSumFn));
+    crate::function_registry::register_function(Arc::new(RomanFn));
+    crate::function_registry::register_function(Arc::new(ArabicFn));
 }
 
 #[cfg(test)]

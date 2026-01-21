@@ -1146,6 +1146,646 @@ impl Function for DropFn {
     }
 }
 
+/* ───────────────────────── XMATCH() ───────────────────────── */
+
+#[derive(Debug)]
+pub struct XMatchFn;
+impl Function for XMatchFn {
+    func_caps!(PURE, LOOKUP);
+    fn name(&self) -> &'static str {
+        "XMATCH"
+    }
+    fn min_args(&self) -> usize {
+        2
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // lookup_value
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // lookup_array (range)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // match_mode (number) default 0
+                // 0 = exact (default), -1 = exact or next smaller, 1 = exact or next larger, 2 = wildcard
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // search_mode (number) default 1
+                // 1 = first to last (default), -1 = last to first, 2 = binary ascending, -2 = binary descending
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 2 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+        let lookup_value = args[0].value()?.into_literal();
+        if let LiteralValue::Error(ref e) = lookup_value {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                e.clone(),
+            )));
+        }
+        let lookup_view = match args[1].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+
+        let (lookup_rows, lookup_cols) = lookup_view.dims();
+
+        // XMATCH requires a 1-D lookup array (single row or single column).
+        let vertical = if lookup_cols == 1 {
+            true
+        } else if lookup_rows == 1 {
+            false
+        } else if lookup_rows == 0 || lookup_cols == 0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            )));
+        } else {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        };
+
+        let lookup_len = if vertical { lookup_rows } else { lookup_cols };
+
+        if lookup_len == 0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            )));
+        }
+
+        let match_mode = if args.len() >= 3 {
+            match args[2].value()?.into_literal() {
+                LiteralValue::Int(i) => i,
+                LiteralValue::Number(n) => n as i64,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+        let search_mode = if args.len() >= 4 {
+            match args[3].value()?.into_literal() {
+                LiteralValue::Int(i) => i,
+                LiteralValue::Number(n) => n as i64,
+                _ => 1,
+            }
+        } else {
+            1
+        };
+
+        let wildcard = match_mode == 2;
+        let needle = lookup_value;
+
+        let mut found: Option<usize> = None;
+
+        if match_mode == 0 || wildcard {
+            // Exact match or wildcard match
+            if search_mode == 1 || search_mode == 2 {
+                // Forward search (first to last) or binary ascending (treated as forward for exact)
+                if lookup_rows > 0 && lookup_cols > 0 {
+                    found = super::lookup_utils::find_exact_index_in_view(
+                        &lookup_view,
+                        &needle,
+                        wildcard,
+                    )?;
+                }
+            } else if search_mode == -1 || search_mode == -2 {
+                // Reverse search (last to first) or binary descending (treated as reverse for exact)
+                for i in (0..lookup_len).rev() {
+                    let cand = if vertical {
+                        lookup_view.get_cell(i, 0)
+                    } else {
+                        lookup_view.get_cell(0, i)
+                    };
+                    if equals_maybe_wildcard(&needle, &cand, wildcard) {
+                        found = Some(i);
+                        break;
+                    }
+                }
+            } else {
+                // Fallback linear scan
+                for i in 0..lookup_len {
+                    let cand = if vertical {
+                        lookup_view.get_cell(i, 0)
+                    } else {
+                        lookup_view.get_cell(0, i)
+                    };
+                    if equals_maybe_wildcard(&needle, &cand, wildcard) {
+                        found = Some(i);
+                        break;
+                    }
+                }
+            }
+        } else if match_mode == -1 || match_mode == 1 {
+            // Approximate match: -1 = exact or next smaller, 1 = exact or next larger
+            let needle_num = value_to_f64_lenient(&needle);
+            let mut best_idx: Option<usize> = None;
+            let mut best_val: f64 = if match_mode == -1 {
+                f64::NEG_INFINITY
+            } else {
+                f64::INFINITY
+            };
+
+            // Determine iteration direction based on search_mode
+            let use_reverse = search_mode == -1 || search_mode == -2;
+            let indices: Box<dyn Iterator<Item = usize>> = if use_reverse {
+                Box::new((0..lookup_len).rev())
+            } else {
+                Box::new(0..lookup_len)
+            };
+
+            // For binary search modes (2, -2), data should be sorted
+            // We verify sorting for approximate modes
+            if (search_mode == 2 || search_mode == -2) && match_mode != 0 {
+                let ascending = search_mode == 2;
+                let mut prev: Option<LiteralValue> = None;
+                for i in 0..lookup_len {
+                    let cand = if vertical {
+                        lookup_view.get_cell(i, 0)
+                    } else {
+                        lookup_view.get_cell(0, i)
+                    };
+                    if let Some(p) = prev.as_ref() {
+                        let sorted_ok = if ascending {
+                            cmp_for_lookup(p, &cand).is_some_and(|o| o <= 0)
+                        } else {
+                            cmp_for_lookup(p, &cand).is_some_and(|o| o >= 0)
+                        };
+                        if !sorted_ok {
+                            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                                ExcelError::new(ExcelErrorKind::Na),
+                            )));
+                        }
+                    }
+                    prev = Some(cand);
+                }
+            }
+
+            for i in indices {
+                let cand = if vertical {
+                    lookup_view.get_cell(i, 0)
+                } else {
+                    lookup_view.get_cell(0, i)
+                };
+
+                if cmp_for_lookup(&cand, &needle).is_some_and(|o| o == 0) {
+                    found = Some(i);
+                    break;
+                }
+
+                if let (Some(nn), Some(vv)) = (needle_num, value_to_f64_lenient(&cand)) {
+                    if match_mode == -1 {
+                        // exact or next smaller
+                        if vv <= nn && vv > best_val {
+                            best_val = vv;
+                            best_idx = Some(i);
+                        }
+                    } else {
+                        // match_mode == 1: exact or next larger
+                        if vv >= nn && vv < best_val {
+                            best_val = vv;
+                            best_idx = Some(i);
+                        }
+                    }
+                }
+            }
+
+            if found.is_none() {
+                found = best_idx;
+            }
+        } else {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        match found {
+            Some(idx) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Int(
+                (idx + 1) as i64,
+            ))),
+            None => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Na),
+            ))),
+        }
+    }
+}
+
+/* ───────────────────────── SORT() ───────────────────────── */
+
+#[derive(Debug)]
+pub struct SortFn;
+impl Function for SortFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "SORT"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // array
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // sort_index (default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // sort_order (default 1 = ascending, -1 = descending)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // by_col (default FALSE = sort rows, TRUE = sort columns)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Logical],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::Logical,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Boolean(false)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let view = match args[0].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+        let (rows, cols) = view.dims();
+        if rows == 0 || cols == 0 {
+            return Ok(crate::traits::CalcValue::Range(
+                crate::engine::range_view::RangeView::from_owned_rows(vec![], _ctx.date_system()),
+            ));
+        }
+
+        let sort_index = if args.len() >= 2 {
+            match args[1].value()?.into_literal() {
+                LiteralValue::Int(i) => i,
+                LiteralValue::Number(n) => n as i64,
+                _ => 1,
+            }
+        } else {
+            1
+        };
+
+        let sort_order = if args.len() >= 3 {
+            match args[2].value()?.into_literal() {
+                LiteralValue::Int(i) => i,
+                LiteralValue::Number(n) => n as i64,
+                _ => 1,
+            }
+        } else {
+            1
+        };
+
+        let by_col = if args.len() >= 4 {
+            matches!(args[3].value()?.into_literal(), LiteralValue::Boolean(true))
+        } else {
+            false
+        };
+
+        let ascending = sort_order >= 0;
+
+        if by_col {
+            // Sort columns by the specified row
+            let sort_row_idx = (sort_index - 1).max(0) as usize;
+            if sort_row_idx >= rows {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value),
+                )));
+            }
+
+            // Extract columns as vectors
+            let mut columns: Vec<(usize, Vec<LiteralValue>)> = Vec::with_capacity(cols);
+            for c in 0..cols {
+                let mut col_vals: Vec<LiteralValue> = Vec::with_capacity(rows);
+                for r in 0..rows {
+                    col_vals.push(view.get_cell(r, c));
+                }
+                columns.push((c, col_vals));
+            }
+
+            // Sort columns by the value in sort_row_idx
+            columns.sort_by(|a, b| {
+                let val_a = &a.1[sort_row_idx];
+                let val_b = &b.1[sort_row_idx];
+                let cmp = cmp_for_lookup(val_a, val_b).unwrap_or(0);
+                if ascending {
+                    cmp.cmp(&0)
+                } else {
+                    0.cmp(&cmp)
+                }
+            });
+
+            // Reconstruct the array with sorted columns
+            let mut out: Vec<Vec<LiteralValue>> = vec![Vec::with_capacity(cols); rows];
+            for (_orig_idx, col_vals) in columns {
+                for (r, val) in col_vals.into_iter().enumerate() {
+                    out[r].push(val);
+                }
+            }
+
+            Ok(collapse_if_scalar(out, _ctx.date_system()))
+        } else {
+            // Sort rows by the specified column
+            let sort_col_idx = (sort_index - 1).max(0) as usize;
+            if sort_col_idx >= cols {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value),
+                )));
+            }
+
+            // Extract rows
+            let mut row_data: Vec<Vec<LiteralValue>> = Vec::with_capacity(rows);
+            for r in 0..rows {
+                let mut row_vals: Vec<LiteralValue> = Vec::with_capacity(cols);
+                for c in 0..cols {
+                    row_vals.push(view.get_cell(r, c));
+                }
+                row_data.push(row_vals);
+            }
+
+            // Sort rows by the value in sort_col_idx
+            row_data.sort_by(|a, b| {
+                let val_a = &a[sort_col_idx];
+                let val_b = &b[sort_col_idx];
+                let cmp = cmp_for_lookup(val_a, val_b).unwrap_or(0);
+                if ascending {
+                    cmp.cmp(&0)
+                } else {
+                    0.cmp(&cmp)
+                }
+            });
+
+            Ok(collapse_if_scalar(row_data, _ctx.date_system()))
+        }
+    }
+}
+
+/* ───────────────────────── SORTBY() ───────────────────────── */
+
+#[derive(Debug)]
+pub struct SortByFn;
+impl Function for SortByFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "SORTBY"
+    }
+    fn min_args(&self) -> usize {
+        2
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // array
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // by_array1
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // sort_order1 (optional, default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // Additional by_array/sort_order pairs can follow (variadic)
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 2 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        let view = match args[0].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+        let (rows, cols) = view.dims();
+        if rows == 0 || cols == 0 {
+            return Ok(crate::traits::CalcValue::Range(
+                crate::engine::range_view::RangeView::from_owned_rows(vec![], _ctx.date_system()),
+            ));
+        }
+
+        // Parse sort criteria: pairs of (by_array, sort_order)
+        // Arguments after array: by_array1, [sort_order1], [by_array2], [sort_order2], ...
+        let mut sort_criteria: Vec<(Vec<LiteralValue>, bool)> = Vec::new();
+        let mut arg_idx = 1;
+
+        while arg_idx < args.len() {
+            // by_array
+            let by_view = match args[arg_idx].range_view() {
+                Ok(v) => v,
+                Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+            };
+            let (by_rows, by_cols) = by_view.dims();
+
+            // The by_array should be 1-D and match the number of rows in the main array
+            let by_values: Vec<LiteralValue> = if by_cols == 1 {
+                if by_rows != rows {
+                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                        ExcelError::new(ExcelErrorKind::Value),
+                    )));
+                }
+                (0..by_rows).map(|r| by_view.get_cell(r, 0)).collect()
+            } else if by_rows == 1 {
+                if by_cols != rows {
+                    return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                        ExcelError::new(ExcelErrorKind::Value),
+                    )));
+                }
+                (0..by_cols).map(|c| by_view.get_cell(0, c)).collect()
+            } else {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value),
+                )));
+            };
+
+            arg_idx += 1;
+
+            // sort_order (optional)
+            let ascending = if arg_idx < args.len() {
+                // Check if next arg is a number (sort_order) or a range (next by_array)
+                match args[arg_idx].value() {
+                    Ok(v) => {
+                        let lit = v.into_literal();
+                        match lit {
+                            LiteralValue::Int(i) => {
+                                arg_idx += 1;
+                                i >= 0
+                            }
+                            LiteralValue::Number(n) => {
+                                arg_idx += 1;
+                                n >= 0.0
+                            }
+                            _ => true, // Next arg is likely a range, use default ascending
+                        }
+                    }
+                    Err(_) => true,
+                }
+            } else {
+                true
+            };
+
+            sort_criteria.push((by_values, ascending));
+        }
+
+        if sort_criteria.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        // Extract rows with their indices
+        let mut indexed_rows: Vec<(usize, Vec<LiteralValue>)> = Vec::with_capacity(rows);
+        for r in 0..rows {
+            let mut row_vals: Vec<LiteralValue> = Vec::with_capacity(cols);
+            for c in 0..cols {
+                row_vals.push(view.get_cell(r, c));
+            }
+            indexed_rows.push((r, row_vals));
+        }
+
+        // Sort using all criteria
+        indexed_rows.sort_by(|a, b| {
+            for (by_values, ascending) in &sort_criteria {
+                let val_a = &by_values[a.0];
+                let val_b = &by_values[b.0];
+                let cmp = cmp_for_lookup(val_a, val_b).unwrap_or(0);
+                if cmp != 0 {
+                    return if *ascending {
+                        cmp.cmp(&0)
+                    } else {
+                        0.cmp(&cmp)
+                    };
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
+
+        // Extract sorted rows
+        let out: Vec<Vec<LiteralValue>> = indexed_rows.into_iter().map(|(_, row)| row).collect();
+
+        Ok(collapse_if_scalar(out, _ctx.date_system()))
+    }
+}
+
 pub fn register_builtins() {
     use crate::function_registry::register_function;
     use std::sync::Arc;
@@ -1156,6 +1796,9 @@ pub fn register_builtins() {
     register_function(Arc::new(TransposeFn));
     register_function(Arc::new(TakeFn));
     register_function(Arc::new(DropFn));
+    register_function(Arc::new(XMatchFn));
+    register_function(Arc::new(SortFn));
+    register_function(Arc::new(SortByFn));
 }
 
 /* ───────────────────────── tests ───────────────────────── */
@@ -1618,5 +2261,312 @@ mod tests {
             .unwrap()
             .into_literal();
         assert_eq!(v, LiteralValue::Number(2.0));
+    }
+
+    #[test]
+    fn xmatch_exact_match_default() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("apple".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("banana".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("cherry".into()));
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let key = lit(LiteralValue::Text("banana".into()));
+        let args = vec![
+            ArgumentHandle::new(&key, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(2));
+    }
+
+    #[test]
+    fn xmatch_exact_or_next_smaller() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(30));
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let needle = lit(LiteralValue::Int(25));
+        let match_mode = lit(LiteralValue::Int(-1)); // exact or next smaller
+        let args = vec![
+            ArgumentHandle::new(&needle, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+            ArgumentHandle::new(&match_mode, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(2)); // 20 is the largest <= 25
+    }
+
+    #[test]
+    fn xmatch_exact_or_next_larger() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(20))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(30));
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let needle = lit(LiteralValue::Int(25));
+        let match_mode = lit(LiteralValue::Int(1)); // exact or next larger
+        let args = vec![
+            ArgumentHandle::new(&needle, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+            ArgumentHandle::new(&match_mode, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(3)); // 30 is the smallest >= 25
+    }
+
+    #[test]
+    fn xmatch_wildcard() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("alpha".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("beta".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("gamma".into()));
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let pattern = lit(LiteralValue::Text("*eta".into()));
+        let match_mode = lit(LiteralValue::Int(2)); // wildcard
+        let args = vec![
+            ArgumentHandle::new(&pattern, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+            ArgumentHandle::new(&match_mode, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(2)); // "beta" matches "*eta"
+    }
+
+    #[test]
+    fn xmatch_reverse_search() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(2))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(1)); // duplicate
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let needle = lit(LiteralValue::Int(1));
+        let match_mode = lit(LiteralValue::Int(0));
+        let search_mode = lit(LiteralValue::Int(-1)); // last to first
+        let args = vec![
+            ArgumentHandle::new(&needle, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+            ArgumentHandle::new(&match_mode, &ctx),
+            ArgumentHandle::new(&search_mode, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        assert_eq!(v, LiteralValue::Int(3)); // last occurrence of 1
+    }
+
+    #[test]
+    fn xmatch_not_found() {
+        let wb = TestWorkbook::new().with_function(Arc::new(XMatchFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(2))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(3));
+        let ctx = wb.interpreter();
+        let lookup_range = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "XMATCH").unwrap();
+        let needle = lit(LiteralValue::Int(5));
+        let args = vec![
+            ArgumentHandle::new(&needle, &ctx),
+            ArgumentHandle::new(&lookup_range, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Error(e) => assert_eq!(e.kind, ExcelErrorKind::Na),
+            other => panic!("expected #N/A got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sort_basic_ascending() {
+        let wb = TestWorkbook::new().with_function(Arc::new(SortFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(20));
+        let ctx = wb.interpreter();
+        let arr = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "SORT").unwrap();
+        let args = vec![ArgumentHandle::new(&arr, &ctx)];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                assert_eq!(a[0][0], LiteralValue::Number(10.0));
+                assert_eq!(a[1][0], LiteralValue::Number(20.0));
+                assert_eq!(a[2][0], LiteralValue::Number(30.0));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sort_descending() {
+        let wb = TestWorkbook::new().with_function(Arc::new(SortFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Int(20));
+        let ctx = wb.interpreter();
+        let arr = range("A1:A3", 1, 1, 3, 1);
+        let f = ctx.context.get_function("", "SORT").unwrap();
+        let sort_index = lit(LiteralValue::Int(1));
+        let sort_order = lit(LiteralValue::Int(-1)); // descending
+        let args = vec![
+            ArgumentHandle::new(&arr, &ctx),
+            ArgumentHandle::new(&sort_index, &ctx),
+            ArgumentHandle::new(&sort_order, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                assert_eq!(a[0][0], LiteralValue::Number(30.0));
+                assert_eq!(a[1][0], LiteralValue::Number(20.0));
+                assert_eq!(a[2][0], LiteralValue::Number(10.0));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sort_by_column() {
+        let wb = TestWorkbook::new().with_function(Arc::new(SortFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("Charlie".into()))
+            .with_cell_a1("Sheet1", "B1", LiteralValue::Int(30))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("Alice".into()))
+            .with_cell_a1("Sheet1", "B2", LiteralValue::Int(10))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("Bob".into()))
+            .with_cell_a1("Sheet1", "B3", LiteralValue::Int(20));
+        let ctx = wb.interpreter();
+        let arr = range("A1:B3", 1, 1, 3, 2);
+        let f = ctx.context.get_function("", "SORT").unwrap();
+        let sort_index = lit(LiteralValue::Int(2)); // sort by column B
+        let args = vec![
+            ArgumentHandle::new(&arr, &ctx),
+            ArgumentHandle::new(&sort_index, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                // Should be sorted by column B: Alice(10), Bob(20), Charlie(30)
+                assert_eq!(a[0][0], LiteralValue::Text("Alice".into()));
+                assert_eq!(a[1][0], LiteralValue::Text("Bob".into()));
+                assert_eq!(a[2][0], LiteralValue::Text("Charlie".into()));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sortby_basic() {
+        let wb = TestWorkbook::new().with_function(Arc::new(SortByFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("Charlie".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("Alice".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("Bob".into()))
+            .with_cell_a1("Sheet1", "B1", LiteralValue::Int(3))
+            .with_cell_a1("Sheet1", "B2", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "B3", LiteralValue::Int(2));
+        let ctx = wb.interpreter();
+        let arr = range("A1:A3", 1, 1, 3, 1);
+        let by_arr = range("B1:B3", 1, 2, 3, 2);
+        let f = ctx.context.get_function("", "SORTBY").unwrap();
+        let args = vec![
+            ArgumentHandle::new(&arr, &ctx),
+            ArgumentHandle::new(&by_arr, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                // Should be sorted by B values: Alice(1), Bob(2), Charlie(3)
+                assert_eq!(a[0][0], LiteralValue::Text("Alice".into()));
+                assert_eq!(a[1][0], LiteralValue::Text("Bob".into()));
+                assert_eq!(a[2][0], LiteralValue::Text("Charlie".into()));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sortby_descending() {
+        let wb = TestWorkbook::new().with_function(Arc::new(SortByFn));
+        let wb = wb
+            .with_cell_a1("Sheet1", "A1", LiteralValue::Text("Charlie".into()))
+            .with_cell_a1("Sheet1", "A2", LiteralValue::Text("Alice".into()))
+            .with_cell_a1("Sheet1", "A3", LiteralValue::Text("Bob".into()))
+            .with_cell_a1("Sheet1", "B1", LiteralValue::Int(3))
+            .with_cell_a1("Sheet1", "B2", LiteralValue::Int(1))
+            .with_cell_a1("Sheet1", "B3", LiteralValue::Int(2));
+        let ctx = wb.interpreter();
+        let arr = range("A1:A3", 1, 1, 3, 1);
+        let by_arr = range("B1:B3", 1, 2, 3, 2);
+        let sort_order = lit(LiteralValue::Int(-1)); // descending
+        let f = ctx.context.get_function("", "SORTBY").unwrap();
+        let args = vec![
+            ArgumentHandle::new(&arr, &ctx),
+            ArgumentHandle::new(&by_arr, &ctx),
+            ArgumentHandle::new(&sort_order, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                // Should be sorted by B values descending: Charlie(3), Bob(2), Alice(1)
+                assert_eq!(a[0][0], LiteralValue::Text("Charlie".into()));
+                assert_eq!(a[1][0], LiteralValue::Text("Bob".into()));
+                assert_eq!(a[2][0], LiteralValue::Text("Alice".into()));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
     }
 }

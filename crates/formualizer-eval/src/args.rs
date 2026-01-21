@@ -51,6 +51,19 @@ impl ArgSchema {
             default: None,
         }
     }
+
+    pub fn range_numeric_lenient() -> Self {
+        Self {
+            kinds: smallvec![ArgKind::Number],
+            required: true,
+            by_ref: false,
+            shape: ShapeKind::Range,
+            coercion: CoercionPolicy::NumberLenientText,
+            max: None,
+            repeating: None,
+            default: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

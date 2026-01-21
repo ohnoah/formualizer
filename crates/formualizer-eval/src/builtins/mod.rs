@@ -1,4 +1,6 @@
+pub mod database; // Database functions (DSUM, DAVERAGE, DCOUNT, DMAX, DMIN)
 pub mod datetime; // Phase 3 date and time functions
+pub mod engineering; // Engineering functions (bitwise, etc.)
 pub mod financial; // Financial functions
 pub mod info; // Sprint 9 info / error introspection
 pub mod logical;
@@ -15,7 +17,9 @@ mod utils;
 mod tests;
 
 pub fn load_builtins() {
+    database::register_builtins();
     datetime::register_builtins();
+    engineering::register_builtins();
     financial::register_builtins();
     logical::register_builtins();
     logical_ext::register_builtins();
