@@ -2617,6 +2617,231 @@ impl Function for ImCosFn {
     }
 }
 
+/* ─────────────────────────── Unit Conversion (CONVERT) ──────────────────────────── */
+
+/// Unit categories for CONVERT function
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum UnitCategory {
+    Length,
+    Mass,
+    Temperature,
+}
+
+/// Information about a unit
+struct UnitInfo {
+    category: UnitCategory,
+    /// Conversion factor to base unit (meters for length, grams for mass)
+    /// For temperature, this is special-cased
+    to_base: f64,
+}
+
+/// Get unit info for a given unit string
+fn get_unit_info(unit: &str) -> Option<UnitInfo> {
+    // Length units (base: meter)
+    match unit {
+        // Metric length
+        "m" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 1.0,
+        }),
+        "km" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 1000.0,
+        }),
+        "cm" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 0.01,
+        }),
+        "mm" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 0.001,
+        }),
+        // Imperial length
+        "mi" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 1609.344,
+        }),
+        "ft" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 0.3048,
+        }),
+        "in" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 0.0254,
+        }),
+        "yd" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 0.9144,
+        }),
+        "Nmi" => Some(UnitInfo {
+            category: UnitCategory::Length,
+            to_base: 1852.0,
+        }),
+
+        // Mass units (base: gram)
+        "g" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 1.0,
+        }),
+        "kg" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 1000.0,
+        }),
+        "mg" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 0.001,
+        }),
+        "lbm" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 453.59237,
+        }),
+        "oz" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 28.349523125,
+        }),
+        "ozm" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 28.349523125,
+        }),
+        "ton" => Some(UnitInfo {
+            category: UnitCategory::Mass,
+            to_base: 907184.74,
+        }),
+
+        // Temperature units (special handling)
+        "C" | "cel" => Some(UnitInfo {
+            category: UnitCategory::Temperature,
+            to_base: 0.0, // Special-cased
+        }),
+        "F" | "fah" => Some(UnitInfo {
+            category: UnitCategory::Temperature,
+            to_base: 0.0, // Special-cased
+        }),
+        "K" | "kel" => Some(UnitInfo {
+            category: UnitCategory::Temperature,
+            to_base: 0.0, // Special-cased
+        }),
+
+        _ => None,
+    }
+}
+
+/// Normalize temperature unit name
+fn normalize_temp_unit(unit: &str) -> &str {
+    match unit {
+        "C" | "cel" => "C",
+        "F" | "fah" => "F",
+        "K" | "kel" => "K",
+        _ => unit,
+    }
+}
+
+/// Convert temperature between units
+fn convert_temperature(value: f64, from: &str, to: &str) -> f64 {
+    let from = normalize_temp_unit(from);
+    let to = normalize_temp_unit(to);
+
+    if from == to {
+        return value;
+    }
+
+    // First convert to Celsius
+    let celsius = match from {
+        "C" => value,
+        "F" => (value - 32.0) * 5.0 / 9.0,
+        "K" => value - 273.15,
+        _ => value,
+    };
+
+    // Then convert from Celsius to target
+    match to {
+        "C" => celsius,
+        "F" => celsius * 9.0 / 5.0 + 32.0,
+        "K" => celsius + 273.15,
+        _ => celsius,
+    }
+}
+
+/// Convert a value between units
+fn convert_units(value: f64, from: &str, to: &str) -> Result<f64, ExcelError> {
+    let from_info = get_unit_info(from).ok_or_else(ExcelError::new_na)?;
+    let to_info = get_unit_info(to).ok_or_else(ExcelError::new_na)?;
+
+    // Check category compatibility
+    if from_info.category != to_info.category {
+        return Err(ExcelError::new_na());
+    }
+
+    // Handle temperature specially
+    if from_info.category == UnitCategory::Temperature {
+        return Ok(convert_temperature(value, from, to));
+    }
+
+    // For other units: convert to base, then to target
+    let base_value = value * from_info.to_base;
+    Ok(base_value / to_info.to_base)
+}
+
+/// CONVERT(number, from_unit, to_unit) - Converts between measurement units
+#[derive(Debug)]
+pub struct ConvertFn;
+impl Function for ConvertFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "CONVERT"
+    }
+    fn min_args(&self) -> usize {
+        3
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_COMPLEX_THREE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        // Get the number value
+        let value = match args[0].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            other => coerce_num(&other)?,
+        };
+
+        // Get from_unit
+        let from_unit = match args[1].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            LiteralValue::Text(s) => s,
+            _ => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new_na(),
+                )));
+            }
+        };
+
+        // Get to_unit
+        let to_unit = match args[2].value()?.into_literal() {
+            LiteralValue::Error(e) => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
+            }
+            LiteralValue::Text(s) => s,
+            _ => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new_na(),
+                )));
+            }
+        };
+
+        match convert_units(value, &from_unit, &to_unit) {
+            Ok(result) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result))),
+            Err(e) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        }
+    }
+}
+
 pub fn register_builtins() {
     use std::sync::Arc;
     crate::function_registry::register_function(Arc::new(BitAndFn));
@@ -2661,4 +2886,6 @@ pub fn register_builtins() {
     crate::function_registry::register_function(Arc::new(ImSqrtFn));
     crate::function_registry::register_function(Arc::new(ImSinFn));
     crate::function_registry::register_function(Arc::new(ImCosFn));
+    // Unit conversion
+    crate::function_registry::register_function(Arc::new(ConvertFn));
 }

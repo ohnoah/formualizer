@@ -242,6 +242,11 @@ impl Function for AccrintFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 6 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let issue_serial = coerce_num(&args[0])?;
         let first_interest_serial = coerce_num(&args[1])?;
         let settlement_serial = coerce_num(&args[2])?;
@@ -324,6 +329,11 @@ impl Function for AccrintmFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 4 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let issue_serial = coerce_num(&args[0])?;
         let settlement_serial = coerce_num(&args[1])?;
         let rate = coerce_num(&args[2])?;
@@ -389,6 +399,11 @@ impl Function for PriceFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 6 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let settlement_serial = coerce_num(&args[0])?;
         let maturity_serial = coerce_num(&args[1])?;
         let rate = coerce_num(&args[2])?;
@@ -512,6 +527,11 @@ impl Function for YieldFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 6 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let settlement_serial = coerce_num(&args[0])?;
         let maturity_serial = coerce_num(&args[1])?;
         let rate = coerce_num(&args[2])?;

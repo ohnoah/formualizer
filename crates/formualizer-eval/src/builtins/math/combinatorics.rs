@@ -176,6 +176,11 @@ impl Function for CombinFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 2 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let n_val = args[0].value()?.into_literal();
         let k_val = args[1].value()?.into_literal();
 
@@ -228,6 +233,11 @@ impl Function for PermutFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        // Check minimum required arguments
+        if args.len() < 2 {
+            return Ok(CalcValue::Scalar(LiteralValue::Error(ExcelError::new_value())));
+        }
+
         let n_val = args[0].value()?.into_literal();
         let k_val = args[1].value()?.into_literal();
 

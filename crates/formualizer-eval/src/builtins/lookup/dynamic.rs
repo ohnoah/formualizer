@@ -1786,6 +1786,169 @@ impl Function for SortByFn {
     }
 }
 
+/* ───────────────────────── RANDARRAY() ───────────────────────── */
+
+#[derive(Debug)]
+pub struct RandArrayFn;
+impl Function for RandArrayFn {
+    // Note: RANDARRAY is NOT pure - it returns different values on each evaluation
+    fn caps(&self) -> crate::function::FnCaps {
+        crate::function::FnCaps::empty()
+    }
+    fn name(&self) -> &'static str {
+        "RANDARRAY"
+    }
+    fn min_args(&self) -> usize {
+        0
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // rows (default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // columns (default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // min (default 0)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // max (default 1)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // whole_number (default FALSE)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Logical],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::Logical,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Boolean(false)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        use rand::Rng;
+
+        // Extract numbers (allow float but coerce to i64 for dimensions)
+        let num = |a: &ArgumentHandle| -> Result<f64, ExcelError> {
+            Ok(match a.value()?.into_literal() {
+                LiteralValue::Int(i) => i as f64,
+                LiteralValue::Number(n) => n,
+                LiteralValue::Error(e) => return Err(e),
+                _other => {
+                    return Err(ExcelError::new(ExcelErrorKind::Value));
+                }
+            })
+        };
+
+        let rows = if !args.is_empty() {
+            num(&args[0])? as i64
+        } else {
+            1
+        };
+        let cols = if args.len() >= 2 {
+            num(&args[1])? as i64
+        } else {
+            1
+        };
+        let min_val = if args.len() >= 3 { num(&args[2])? } else { 0.0 };
+        let max_val = if args.len() >= 4 { num(&args[3])? } else { 1.0 };
+        let whole_number = if args.len() >= 5 {
+            matches!(args[4].value()?.into_literal(), LiteralValue::Boolean(true))
+        } else {
+            false
+        };
+
+        // Validate dimensions
+        if rows <= 0 || cols <= 0 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        // Validate min <= max for whole numbers
+        if whole_number && min_val > max_val {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        let mut rng = rand::thread_rng();
+        let mut out: Vec<Vec<LiteralValue>> = Vec::with_capacity(rows as usize);
+
+        for _r in 0..rows {
+            let mut row_vec: Vec<LiteralValue> = Vec::with_capacity(cols as usize);
+            for _c in 0..cols {
+                let value = if whole_number {
+                    // Generate random integer in range [min, max] inclusive
+                    let min_int = min_val.ceil() as i64;
+                    let max_int = max_val.floor() as i64;
+                    if min_int > max_int {
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                            ExcelError::new(ExcelErrorKind::Value),
+                        )));
+                    }
+                    let rand_int = rng.gen_range(min_int..=max_int);
+                    LiteralValue::Int(rand_int)
+                } else {
+                    // Generate random float in range [min, max)
+                    let rand_float = rng.r#gen::<f64>() * (max_val - min_val) + min_val;
+                    LiteralValue::Number(rand_float)
+                };
+                row_vec.push(value);
+            }
+            out.push(row_vec);
+        }
+
+        Ok(collapse_if_scalar(out, _ctx.date_system()))
+    }
+}
+
 pub fn register_builtins() {
     use crate::function_registry::register_function;
     use std::sync::Arc;
@@ -1799,6 +1962,7 @@ pub fn register_builtins() {
     register_function(Arc::new(XMatchFn));
     register_function(Arc::new(SortFn));
     register_function(Arc::new(SortByFn));
+    register_function(Arc::new(RandArrayFn));
 }
 
 /* ───────────────────────── tests ───────────────────────── */
@@ -2565,6 +2729,88 @@ mod tests {
                 assert_eq!(a[0][0], LiteralValue::Text("Charlie".into()));
                 assert_eq!(a[1][0], LiteralValue::Text("Bob".into()));
                 assert_eq!(a[2][0], LiteralValue::Text("Alice".into()));
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn randarray_basic() {
+        let wb = TestWorkbook::new().with_function(Arc::new(RandArrayFn));
+        let ctx = wb.interpreter();
+        let f = ctx.context.get_function("", "RANDARRAY").unwrap();
+
+        // Test basic 2x3 array with defaults
+        let rows = lit(LiteralValue::Int(2));
+        let cols = lit(LiteralValue::Int(3));
+        let args = vec![
+            ArgumentHandle::new(&rows, &ctx),
+            ArgumentHandle::new(&cols, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 2);
+                assert_eq!(a[0].len(), 3);
+                // Check all values are between 0 and 1
+                for row in &a {
+                    for cell in row {
+                        match cell {
+                            LiteralValue::Number(n) => {
+                                assert!(*n >= 0.0 && *n < 1.0, "Value {n} not in [0, 1)");
+                            }
+                            other => panic!("expected Number got {other:?}"),
+                        }
+                    }
+                }
+            }
+            other => panic!("expected array got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn randarray_whole_numbers() {
+        let wb = TestWorkbook::new().with_function(Arc::new(RandArrayFn));
+        let ctx = wb.interpreter();
+        let f = ctx.context.get_function("", "RANDARRAY").unwrap();
+
+        // Test 3x2 array with whole numbers between 1 and 10
+        let rows = lit(LiteralValue::Int(3));
+        let cols = lit(LiteralValue::Int(2));
+        let min = lit(LiteralValue::Int(1));
+        let max = lit(LiteralValue::Int(10));
+        let whole = lit(LiteralValue::Boolean(true));
+        let args = vec![
+            ArgumentHandle::new(&rows, &ctx),
+            ArgumentHandle::new(&cols, &ctx),
+            ArgumentHandle::new(&min, &ctx),
+            ArgumentHandle::new(&max, &ctx),
+            ArgumentHandle::new(&whole, &ctx),
+        ];
+        let v = f
+            .dispatch(&args, &ctx.function_context(None))
+            .unwrap()
+            .into_literal();
+        match v {
+            LiteralValue::Array(a) => {
+                assert_eq!(a.len(), 3);
+                assert_eq!(a[0].len(), 2);
+                // Check all values are integers between 1 and 10
+                for row in &a {
+                    for cell in row {
+                        let n = match cell {
+                            LiteralValue::Int(n) => *n as f64,
+                            LiteralValue::Number(n) => *n,
+                            other => panic!("expected Int or Number got {other:?}"),
+                        };
+                        assert!(n >= 1.0 && n <= 10.0, "Value {n} not in [1, 10]");
+                        // Verify it's actually a whole number
+                        assert!(n.fract() == 0.0, "Value {n} is not a whole number");
+                    }
+                }
             }
             other => panic!("expected array got {other:?}"),
         }
