@@ -952,6 +952,188 @@ impl Function for QuartileExc {
     }
 }
 
+/// PRODUCT(number1, [number2], ...) - Multiplies all arguments
+#[derive(Debug)]
+pub struct ProductFn;
+impl Function for ProductFn {
+    func_caps!(PURE, NUMERIC_ONLY, REDUCTION);
+    fn name(&self) -> &'static str {
+        "PRODUCT"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_RANGE_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let nums = collect_numeric_stats(args)?;
+        if nums.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(0.0)));
+        }
+        let result = nums.iter().product::<f64>();
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+/// GEOMEAN(number1, [number2], ...) - Returns the geometric mean
+#[derive(Debug)]
+pub struct GeomeanFn;
+impl Function for GeomeanFn {
+    func_caps!(PURE, NUMERIC_ONLY, REDUCTION);
+    fn name(&self) -> &'static str {
+        "GEOMEAN"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_RANGE_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let nums = collect_numeric_stats(args)?;
+        if nums.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        // All values must be positive
+        if nums.iter().any(|&n| n <= 0.0) {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        // Geometric mean = (x1 * x2 * ... * xn)^(1/n)
+        // Use log to avoid overflow: exp(mean(ln(x)))
+        let log_sum: f64 = nums.iter().map(|x| x.ln()).sum();
+        let result = (log_sum / nums.len() as f64).exp();
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+/// HARMEAN(number1, [number2], ...) - Returns the harmonic mean
+#[derive(Debug)]
+pub struct HarmeanFn;
+impl Function for HarmeanFn {
+    func_caps!(PURE, NUMERIC_ONLY, REDUCTION);
+    fn name(&self) -> &'static str {
+        "HARMEAN"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_RANGE_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let nums = collect_numeric_stats(args)?;
+        if nums.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        // All values must be positive
+        if nums.iter().any(|&n| n <= 0.0) {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        // Harmonic mean = n / sum(1/x)
+        let sum_reciprocals: f64 = nums.iter().map(|x| 1.0 / x).sum();
+        let result = nums.len() as f64 / sum_reciprocals;
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(result)))
+    }
+}
+
+/// AVEDEV(number1, [number2], ...) - Returns the average of absolute deviations from mean
+#[derive(Debug)]
+pub struct AvedevFn;
+impl Function for AvedevFn {
+    func_caps!(PURE, NUMERIC_ONLY, REDUCTION);
+    fn name(&self) -> &'static str {
+        "AVEDEV"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_RANGE_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let nums = collect_numeric_stats(args)?;
+        if nums.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        let mean = nums.iter().sum::<f64>() / nums.len() as f64;
+        let avedev = nums.iter().map(|x| (x - mean).abs()).sum::<f64>() / nums.len() as f64;
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(avedev)))
+    }
+}
+
+/// DEVSQ(number1, [number2], ...) - Returns the sum of squared deviations from mean
+#[derive(Debug)]
+pub struct DevsqFn;
+impl Function for DevsqFn {
+    func_caps!(PURE, NUMERIC_ONLY, REDUCTION);
+    fn name(&self) -> &'static str {
+        "DEVSQ"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        &ARG_RANGE_NUM_LENIENT_ONE[..]
+    }
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let nums = collect_numeric_stats(args)?;
+        if nums.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new_num(),
+            )));
+        }
+        let mean = nums.iter().sum::<f64>() / nums.len() as f64;
+        let devsq = nums.iter().map(|x| (x - mean).powi(2)).sum::<f64>();
+        Ok(crate::traits::CalcValue::Scalar(LiteralValue::Number(devsq)))
+    }
+}
+
 pub fn register_builtins() {
     use std::sync::Arc;
     crate::function_registry::register_function(Arc::new(LARGE));
@@ -969,6 +1151,11 @@ pub fn register_builtins() {
     crate::function_registry::register_function(Arc::new(RankAvgFn));
     crate::function_registry::register_function(Arc::new(ModeSingleFn));
     crate::function_registry::register_function(Arc::new(ModeMultiFn));
+    crate::function_registry::register_function(Arc::new(ProductFn));
+    crate::function_registry::register_function(Arc::new(GeomeanFn));
+    crate::function_registry::register_function(Arc::new(HarmeanFn));
+    crate::function_registry::register_function(Arc::new(AvedevFn));
+    crate::function_registry::register_function(Arc::new(DevsqFn));
 }
 
 #[cfg(test)]
