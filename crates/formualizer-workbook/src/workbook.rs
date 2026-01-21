@@ -120,6 +120,9 @@ impl Default for Workbook {
 
 impl Workbook {
     pub fn new_with_config(mut config: WorkbookConfig) -> Self {
+        // Ensure builtins are registered before creating the engine
+        crate::builtins::ensure_builtins_loaded();
+
         config.eval.arrow_storage_enabled = true;
         config.eval.delta_overlay_enabled = true;
         config.eval.write_formula_overlay_enabled = true;

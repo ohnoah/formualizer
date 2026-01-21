@@ -1949,6 +1949,880 @@ impl Function for RandArrayFn {
     }
 }
 
+/* ───────────────────────── GROUPBY() ───────────────────────── */
+
+/// Aggregation type for GROUPBY and PIVOTBY
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GroupAggregation {
+    Sum,
+    Average,
+    Count,
+    CountA,
+    Max,
+    Min,
+    Product,
+    StDev,
+    StDevP,
+    Var,
+    VarP,
+    Median,
+}
+
+impl GroupAggregation {
+    fn from_literal(val: &LiteralValue) -> Option<Self> {
+        match val {
+            LiteralValue::Text(s) => Self::from_str(s),
+            LiteralValue::Int(n) => Self::from_num(*n as i32),
+            LiteralValue::Number(n) => Self::from_num(*n as i32),
+            _ => None,
+        }
+    }
+
+    fn from_str(s: &str) -> Option<Self> {
+        let upper = s.to_ascii_uppercase();
+        match upper.as_str() {
+            "SUM" => Some(Self::Sum),
+            "AVERAGE" | "AVG" => Some(Self::Average),
+            "COUNT" => Some(Self::Count),
+            "COUNTA" => Some(Self::CountA),
+            "MAX" => Some(Self::Max),
+            "MIN" => Some(Self::Min),
+            "PRODUCT" => Some(Self::Product),
+            "STDEV" | "STDEV.S" => Some(Self::StDev),
+            "STDEVP" | "STDEV.P" => Some(Self::StDevP),
+            "VAR" | "VAR.S" => Some(Self::Var),
+            "VARP" | "VAR.P" => Some(Self::VarP),
+            "MEDIAN" => Some(Self::Median),
+            _ => None,
+        }
+    }
+
+    fn from_num(n: i32) -> Option<Self> {
+        // Excel's AGGREGATE function_num mapping (common subset)
+        match n {
+            1 => Some(Self::Average),
+            2 => Some(Self::Count),
+            3 => Some(Self::CountA),
+            4 => Some(Self::Max),
+            5 => Some(Self::Min),
+            6 => Some(Self::Product),
+            7 => Some(Self::StDev),
+            8 => Some(Self::StDevP),
+            9 => Some(Self::Sum),
+            10 => Some(Self::Var),
+            11 => Some(Self::VarP),
+            12 => Some(Self::Median),
+            _ => None,
+        }
+    }
+
+    fn apply(&self, values: &[f64]) -> f64 {
+        if values.is_empty() {
+            return match self {
+                Self::Count | Self::CountA => 0.0,
+                Self::Sum | Self::Product => 0.0,
+                _ => f64::NAN,
+            };
+        }
+
+        match self {
+            Self::Sum => values.iter().sum(),
+            Self::Average => values.iter().sum::<f64>() / values.len() as f64,
+            Self::Count | Self::CountA => values.len() as f64,
+            Self::Max => values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            Self::Min => values.iter().copied().fold(f64::INFINITY, f64::min),
+            Self::Product => values.iter().product(),
+            Self::StDev => {
+                if values.len() < 2 {
+                    return f64::NAN;
+                }
+                let mean = values.iter().sum::<f64>() / values.len() as f64;
+                let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>()
+                    / (values.len() - 1) as f64;
+                variance.sqrt()
+            }
+            Self::StDevP => {
+                let mean = values.iter().sum::<f64>() / values.len() as f64;
+                let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>()
+                    / values.len() as f64;
+                variance.sqrt()
+            }
+            Self::Var => {
+                if values.len() < 2 {
+                    return f64::NAN;
+                }
+                let mean = values.iter().sum::<f64>() / values.len() as f64;
+                values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64
+            }
+            Self::VarP => {
+                let mean = values.iter().sum::<f64>() / values.len() as f64;
+                values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64
+            }
+            Self::Median => {
+                let mut sorted = values.to_vec();
+                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                let mid = sorted.len() / 2;
+                if sorted.len() % 2 == 0 {
+                    (sorted[mid - 1] + sorted[mid]) / 2.0
+                } else {
+                    sorted[mid]
+                }
+            }
+        }
+    }
+}
+
+/// Helper to convert LiteralValue to a group key string
+fn literal_to_group_key(v: &LiteralValue) -> String {
+    match v {
+        LiteralValue::Text(s) => s.clone(),
+        LiteralValue::Int(i) => i.to_string(),
+        LiteralValue::Number(n) => format!("{:.10}", n),
+        LiteralValue::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
+        LiteralValue::Empty => String::new(),
+        LiteralValue::Error(e) => format!("#{:?}", e.kind),
+        LiteralValue::Array(_) => "[Array]".to_string(),
+        LiteralValue::Date(d) => d.to_string(),
+        LiteralValue::DateTime(dt) => dt.to_string(),
+        LiteralValue::Time(t) => t.to_string(),
+        LiteralValue::Duration(d) => format!("{:?}", d),
+        LiteralValue::Pending => "[Pending]".to_string(),
+    }
+}
+
+/// Helper to extract numeric value for aggregation
+fn literal_to_num_opt(v: &LiteralValue) -> Option<f64> {
+    match v {
+        LiteralValue::Number(n) => Some(*n),
+        LiteralValue::Int(i) => Some(*i as f64),
+        LiteralValue::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
+        _ => None,
+    }
+}
+
+#[derive(Debug)]
+pub struct GroupByFn;
+
+impl Function for GroupByFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "GROUPBY"
+    }
+    fn min_args(&self) -> usize {
+        3
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // row_fields - range to group by
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // values - range of values to aggregate
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // function - aggregation function (SUM, AVERAGE, etc.)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // field_headers (optional) - 0: no headers, 1: has headers (default), 2: generate headers, 3: has headers + generate
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // total_depth (optional) - 0: no totals, 1: grand total, 2: subtotals, etc.
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // sort_order (optional) - 0: no sorting, 1: ascending, -1: descending, 2: by value asc, -2: by value desc
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 3 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        // Get row_fields and values ranges
+        let row_fields_view = match args[0].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+        let values_view = match args[1].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+
+        // Parse aggregation function
+        let agg_val = args[2].value()?.into_literal();
+        let aggregation = match GroupAggregation::from_literal(&agg_val) {
+            Some(a) => a,
+            None => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value)
+                        .with_message("Invalid aggregation function"),
+                )));
+            }
+        };
+
+        // Parse optional parameters
+        let field_headers = if args.len() >= 4 {
+            match args[3].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 1,
+            }
+        } else {
+            1
+        };
+
+        let total_depth = if args.len() >= 5 {
+            match args[4].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let sort_order = if args.len() >= 6 {
+            match args[5].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let (rf_rows, rf_cols) = row_fields_view.dims();
+        let (val_rows, val_cols) = values_view.dims();
+
+        // Determine if we have headers
+        let has_headers = field_headers == 1 || field_headers == 3;
+        let data_start_row = if has_headers { 1 } else { 0 };
+
+        // Validate that row counts match (accounting for headers)
+        if rf_rows != val_rows {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value)
+                    .with_message("Row fields and values must have same number of rows"),
+            )));
+        }
+
+        if rf_rows <= data_start_row {
+            // No data rows
+            return Ok(crate::traits::CalcValue::Range(
+                crate::engine::range_view::RangeView::from_owned_rows(vec![], _ctx.date_system()),
+            ));
+        }
+
+        // Build groups: key -> list of values for each value column
+        // For multi-column row_fields, concatenate keys
+        let mut groups: std::collections::HashMap<String, Vec<Vec<f64>>> = HashMap::new();
+        let mut group_order: Vec<String> = Vec::new();
+
+        for r in data_start_row..rf_rows {
+            // Build composite key from all row_field columns
+            let mut key_parts: Vec<String> = Vec::with_capacity(rf_cols);
+            for c in 0..rf_cols {
+                key_parts.push(literal_to_group_key(&row_fields_view.get_cell(r, c)));
+            }
+            let key = key_parts.join("\x00"); // Use null separator for composite keys
+
+            // Get values for this row
+            let mut row_values: Vec<Option<f64>> = Vec::with_capacity(val_cols);
+            for c in 0..val_cols {
+                row_values.push(literal_to_num_opt(&values_view.get_cell(r, c)));
+            }
+
+            // Add to groups
+            if !groups.contains_key(&key) {
+                group_order.push(key.clone());
+                groups.insert(key.clone(), vec![Vec::new(); val_cols]);
+            }
+
+            let group_vals = groups.get_mut(&key).unwrap();
+            for (c, val) in row_values.iter().enumerate() {
+                if let Some(v) = val {
+                    group_vals[c].push(*v);
+                }
+            }
+        }
+
+        // Sort groups if requested
+        if sort_order != 0 {
+            group_order.sort_by(|a, b| {
+                if sort_order > 0 {
+                    a.cmp(b)
+                } else {
+                    b.cmp(a)
+                }
+            });
+        }
+
+        // Build output
+        let mut output: Vec<Vec<LiteralValue>> = Vec::new();
+
+        // Add header row if requested
+        let generate_headers = field_headers == 2 || field_headers == 3;
+        if generate_headers {
+            let mut header_row: Vec<LiteralValue> = Vec::new();
+            // Row field headers
+            for c in 0..rf_cols {
+                if has_headers {
+                    header_row.push(row_fields_view.get_cell(0, c));
+                } else {
+                    header_row.push(LiteralValue::Text(format!("Field{}", c + 1)));
+                }
+            }
+            // Value headers
+            for c in 0..val_cols {
+                if has_headers {
+                    header_row.push(values_view.get_cell(0, c));
+                } else {
+                    header_row.push(LiteralValue::Text(format!("Value{}", c + 1)));
+                }
+            }
+            output.push(header_row);
+        }
+
+        // Add grouped data rows
+        for key in &group_order {
+            let mut row: Vec<LiteralValue> = Vec::new();
+
+            // Add row field values (split composite key)
+            let key_parts: Vec<&str> = key.split('\x00').collect();
+            for part in &key_parts {
+                row.push(LiteralValue::Text(part.to_string()));
+            }
+
+            // Add aggregated values
+            let group_vals = groups.get(key).unwrap();
+            for col_vals in group_vals {
+                let result = aggregation.apply(col_vals);
+                if result.is_nan() {
+                    row.push(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Na)));
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    row.push(LiteralValue::Int(result as i64));
+                } else {
+                    row.push(LiteralValue::Number(result));
+                }
+            }
+            output.push(row);
+        }
+
+        // Add grand total if requested
+        if total_depth >= 1 {
+            let mut total_row: Vec<LiteralValue> = Vec::new();
+            // Empty cells for row fields (except first which says "Grand Total")
+            total_row.push(LiteralValue::Text("Grand Total".to_string()));
+            for _ in 1..rf_cols {
+                total_row.push(LiteralValue::Empty);
+            }
+
+            // Aggregate all values across all groups
+            for c in 0..val_cols {
+                let mut all_vals: Vec<f64> = Vec::new();
+                for group_vals in groups.values() {
+                    all_vals.extend(&group_vals[c]);
+                }
+                let result = aggregation.apply(&all_vals);
+                if result.is_nan() {
+                    total_row.push(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Na)));
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    total_row.push(LiteralValue::Int(result as i64));
+                } else {
+                    total_row.push(LiteralValue::Number(result));
+                }
+            }
+            output.push(total_row);
+        }
+
+        if output.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Calc),
+            )));
+        }
+
+        Ok(collapse_if_scalar(output, _ctx.date_system()))
+    }
+}
+
+/* ───────────────────────── PIVOTBY() ───────────────────────── */
+
+#[derive(Debug)]
+pub struct PivotByFn;
+
+impl Function for PivotByFn {
+    func_caps!(PURE);
+    fn name(&self) -> &'static str {
+        "PIVOTBY"
+    }
+    fn min_args(&self) -> usize {
+        4
+    }
+    fn variadic(&self) -> bool {
+        true
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use once_cell::sync::Lazy;
+        static SCHEMA: Lazy<Vec<ArgSchema>> = Lazy::new(|| {
+            vec![
+                // row_fields - range to group rows by
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // col_fields - range to group columns by
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // values - range of values to aggregate
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Range],
+                    required: true,
+                    by_ref: true,
+                    shape: ShapeKind::Range,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // function - aggregation function
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Any],
+                    required: true,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::None,
+                    max: None,
+                    repeating: None,
+                    default: None,
+                },
+                // field_headers (optional)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(1)),
+                },
+                // row_total_depth (optional)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // row_sort_order (optional)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // col_total_depth (optional)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+                // col_sort_order (optional)
+                ArgSchema {
+                    kinds: smallvec::smallvec![ArgKind::Number],
+                    required: false,
+                    by_ref: false,
+                    shape: ShapeKind::Scalar,
+                    coercion: CoercionPolicy::NumberLenientText,
+                    max: None,
+                    repeating: None,
+                    default: Some(LiteralValue::Int(0)),
+                },
+            ]
+        });
+        &SCHEMA
+    }
+
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() < 4 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value),
+            )));
+        }
+
+        // Get ranges
+        let row_fields_view = match args[0].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+        let col_fields_view = match args[1].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+        let values_view = match args[2].range_view() {
+            Ok(v) => v,
+            Err(e) => return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
+        };
+
+        // Parse aggregation function
+        let agg_val = args[3].value()?.into_literal();
+        let aggregation = match GroupAggregation::from_literal(&agg_val) {
+            Some(a) => a,
+            None => {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new(ExcelErrorKind::Value)
+                        .with_message("Invalid aggregation function"),
+                )));
+            }
+        };
+
+        // Parse optional parameters
+        let field_headers = if args.len() >= 5 {
+            match args[4].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 1,
+            }
+        } else {
+            1
+        };
+
+        let row_total_depth = if args.len() >= 6 {
+            match args[5].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let row_sort_order = if args.len() >= 7 {
+            match args[6].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let col_total_depth = if args.len() >= 8 {
+            match args[7].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let col_sort_order = if args.len() >= 9 {
+            match args[8].value()?.into_literal() {
+                LiteralValue::Int(i) => i as i32,
+                LiteralValue::Number(n) => n as i32,
+                _ => 0,
+            }
+        } else {
+            0
+        };
+
+        let (rf_rows, rf_cols) = row_fields_view.dims();
+        let (cf_rows, _cf_cols) = col_fields_view.dims();
+        let (val_rows, _val_cols) = values_view.dims();
+
+        // Validate dimensions
+        if rf_rows != cf_rows || rf_rows != val_rows {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value)
+                    .with_message("All ranges must have same number of rows"),
+            )));
+        }
+
+        let has_headers = field_headers == 1 || field_headers == 3;
+        let data_start_row = if has_headers { 1 } else { 0 };
+
+        if rf_rows <= data_start_row {
+            return Ok(crate::traits::CalcValue::Range(
+                crate::engine::range_view::RangeView::from_owned_rows(vec![], _ctx.date_system()),
+            ));
+        }
+
+        // Collect unique row and column keys
+        let mut row_keys: Vec<String> = Vec::new();
+        let mut col_keys: Vec<String> = Vec::new();
+        let mut row_key_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut col_key_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // Build pivot data: (row_key, col_key) -> values
+        let mut pivot_data: HashMap<(String, String), Vec<f64>> = HashMap::new();
+
+        for r in data_start_row..rf_rows {
+            // Build row key
+            let mut row_key_parts: Vec<String> = Vec::with_capacity(rf_cols);
+            for c in 0..rf_cols {
+                row_key_parts.push(literal_to_group_key(&row_fields_view.get_cell(r, c)));
+            }
+            let row_key = row_key_parts.join("\x00");
+
+            // Build col key (use first column of col_fields for simplicity)
+            let col_key = literal_to_group_key(&col_fields_view.get_cell(r, 0));
+
+            // Get value (use first column of values)
+            let val = literal_to_num_opt(&values_view.get_cell(r, 0));
+
+            // Track unique keys in order
+            if !row_key_set.contains(&row_key) {
+                row_key_set.insert(row_key.clone());
+                row_keys.push(row_key.clone());
+            }
+            if !col_key_set.contains(&col_key) {
+                col_key_set.insert(col_key.clone());
+                col_keys.push(col_key.clone());
+            }
+
+            // Add to pivot data
+            let entry = pivot_data
+                .entry((row_key, col_key))
+                .or_insert_with(Vec::new);
+            if let Some(v) = val {
+                entry.push(v);
+            }
+        }
+
+        // Sort keys if requested
+        if row_sort_order != 0 {
+            row_keys.sort_by(|a, b| {
+                if row_sort_order > 0 {
+                    a.cmp(b)
+                } else {
+                    b.cmp(a)
+                }
+            });
+        }
+        if col_sort_order != 0 {
+            col_keys.sort_by(|a, b| {
+                if col_sort_order > 0 {
+                    a.cmp(b)
+                } else {
+                    b.cmp(a)
+                }
+            });
+        }
+
+        // Build output grid
+        let mut output: Vec<Vec<LiteralValue>> = Vec::new();
+
+        // Header row: empty cells for row fields + column keys
+        let generate_headers = field_headers == 2 || field_headers == 3;
+        if generate_headers || has_headers {
+            let mut header_row: Vec<LiteralValue> = Vec::new();
+            // Empty cells for row field columns
+            for _ in 0..rf_cols {
+                header_row.push(LiteralValue::Empty);
+            }
+            // Column headers
+            for col_key in &col_keys {
+                // Split composite key and use the visible parts
+                let parts: Vec<&str> = col_key.split('\x00').collect();
+                header_row.push(LiteralValue::Text(parts.join(" ")));
+            }
+            // Total column header
+            if col_total_depth >= 1 {
+                header_row.push(LiteralValue::Text("Total".to_string()));
+            }
+            output.push(header_row);
+        }
+
+        // Data rows
+        for row_key in &row_keys {
+            let mut row: Vec<LiteralValue> = Vec::new();
+
+            // Row field values
+            let row_parts: Vec<&str> = row_key.split('\x00').collect();
+            for part in &row_parts {
+                row.push(LiteralValue::Text(part.to_string()));
+            }
+
+            // Values for each column
+            let mut row_total_vals: Vec<f64> = Vec::new();
+            for col_key in &col_keys {
+                let key = (row_key.clone(), col_key.clone());
+                let vals = pivot_data.get(&key).map(|v| v.as_slice()).unwrap_or(&[]);
+                let result = aggregation.apply(vals);
+
+                // Collect for row total
+                row_total_vals.extend(vals);
+
+                if result.is_nan() || vals.is_empty() {
+                    row.push(LiteralValue::Empty);
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    row.push(LiteralValue::Int(result as i64));
+                } else {
+                    row.push(LiteralValue::Number(result));
+                }
+            }
+
+            // Row total
+            if col_total_depth >= 1 {
+                let result = aggregation.apply(&row_total_vals);
+                if result.is_nan() {
+                    row.push(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Na)));
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    row.push(LiteralValue::Int(result as i64));
+                } else {
+                    row.push(LiteralValue::Number(result));
+                }
+            }
+
+            output.push(row);
+        }
+
+        // Grand total row
+        if row_total_depth >= 1 {
+            let mut total_row: Vec<LiteralValue> = Vec::new();
+            total_row.push(LiteralValue::Text("Total".to_string()));
+            for _ in 1..rf_cols {
+                total_row.push(LiteralValue::Empty);
+            }
+
+            let mut grand_total_vals: Vec<f64> = Vec::new();
+            for col_key in &col_keys {
+                let mut col_vals: Vec<f64> = Vec::new();
+                for row_key in &row_keys {
+                    let key = (row_key.clone(), col_key.clone());
+                    if let Some(vals) = pivot_data.get(&key) {
+                        col_vals.extend(vals);
+                    }
+                }
+                grand_total_vals.extend(&col_vals);
+                let result = aggregation.apply(&col_vals);
+                if result.is_nan() {
+                    total_row.push(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Na)));
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    total_row.push(LiteralValue::Int(result as i64));
+                } else {
+                    total_row.push(LiteralValue::Number(result));
+                }
+            }
+
+            // Grand total of grand totals
+            if col_total_depth >= 1 {
+                let result = aggregation.apply(&grand_total_vals);
+                if result.is_nan() {
+                    total_row.push(LiteralValue::Error(ExcelError::new(ExcelErrorKind::Na)));
+                } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    total_row.push(LiteralValue::Int(result as i64));
+                } else {
+                    total_row.push(LiteralValue::Number(result));
+                }
+            }
+
+            output.push(total_row);
+        }
+
+        if output.is_empty() {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Calc),
+            )));
+        }
+
+        Ok(collapse_if_scalar(output, _ctx.date_system()))
+    }
+}
+
 pub fn register_builtins() {
     use crate::function_registry::register_function;
     use std::sync::Arc;
@@ -1963,6 +2837,8 @@ pub fn register_builtins() {
     register_function(Arc::new(SortFn));
     register_function(Arc::new(SortByFn));
     register_function(Arc::new(RandArrayFn));
+    register_function(Arc::new(GroupByFn));
+    register_function(Arc::new(PivotByFn));
 }
 
 /* ───────────────────────── tests ───────────────────────── */
@@ -1974,6 +2850,24 @@ mod tests {
     use crate::traits::ArgumentHandle;
     use formualizer_parse::parser::{ASTNode, ASTNodeType, ReferenceType};
     use std::sync::Arc;
+
+    #[test]
+    fn test_all_dynamic_functions_registered() {
+        // Ensure builtins are registered
+        crate::builtins::load_builtins();
+
+        let functions = [
+            "XLOOKUP", "FILTER", "UNIQUE", "SEQUENCE", "TRANSPOSE",
+            "TAKE", "DROP", "XMATCH", "SORT", "SORTBY", "RANDARRAY",
+            "GROUPBY", "PIVOTBY"
+        ];
+
+        for name in &functions {
+            let result = crate::function_registry::get("", name);
+            assert!(result.is_some(), "Function {} should be registered", name);
+        }
+    }
+
     fn lit(v: LiteralValue) -> ASTNode {
         ASTNode::new(ASTNodeType::Literal(v), None)
     }
