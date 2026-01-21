@@ -309,10 +309,8 @@ impl Function for TypeFn {
                 ExcelError::new_value(),
             )));
         }
-        let v = args[0].value()?.into_literal(); // Propagate errors directly
-        if let LiteralValue::Error(e) = v {
-            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e)));
-        }
+        let v = args[0].value()?.into_literal();
+        // TYPE should NOT propagate errors - it returns 16 for errors
         let code = match v {
             LiteralValue::Int(_)
             | LiteralValue::Number(_)
@@ -320,11 +318,11 @@ impl Function for TypeFn {
             | LiteralValue::Date(_)
             | LiteralValue::DateTime(_)
             | LiteralValue::Time(_)
-            | LiteralValue::Duration(_) => 1,
+            | LiteralValue::Duration(_)
+            | LiteralValue::Boolean(_) => 1, // LibreOffice treats booleans as type 1 (number)
             LiteralValue::Text(_) => 2,
-            LiteralValue::Boolean(_) => 4,
+            LiteralValue::Error(_) => 16,
             LiteralValue::Array(_) => 64,
-            LiteralValue::Error(_) => unreachable!(),
             LiteralValue::Pending => 1, // treat as blank/zero numeric; may change
         };
         Ok(crate::traits::CalcValue::Scalar(LiteralValue::Int(code)))

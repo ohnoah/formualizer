@@ -465,10 +465,11 @@ impl Function for IpmtFn {
         };
 
         // Interest is rate * balance at start of period
+        // fv_at_start is negative of balance, so ipmt = fv_at_start * rate
         let ipmt = if pmt_type != 0 && per == 1.0 {
             0.0 // No interest in first period for annuity due
         } else {
-            -fv_at_start * rate
+            fv_at_start * rate
         };
 
         Ok(CalcValue::Scalar(LiteralValue::Number(ipmt)))
@@ -541,7 +542,7 @@ impl Function for PpmtFn {
         let ipmt = if pmt_type != 0 && per == 1.0 {
             0.0
         } else {
-            -fv_at_start * rate
+            fv_at_start * rate
         };
 
         // PPMT = PMT - IPMT

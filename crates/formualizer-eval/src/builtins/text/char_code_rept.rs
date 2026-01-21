@@ -1,6 +1,6 @@
 //! CHAR, CODE, REPT text functions
 
-use super::super::utils::{ARG_ANY_ONE, ARG_NUM_LENIENT_TWO, coerce_num};
+use super::super::utils::{ARG_ANY_ONE, ARG_ANY_TWO, coerce_num};
 use crate::args::ArgSchema;
 use crate::function::Function;
 use crate::traits::{ArgumentHandle, CalcValue, FunctionContext};
@@ -169,7 +169,7 @@ impl Function for ReptFn {
         2
     }
     fn arg_schema(&self) -> &'static [ArgSchema] {
-        &ARG_NUM_LENIENT_TWO[..]
+        &ARG_ANY_TWO[..]
     }
     fn eval<'a, 'b, 'c>(
         &self,
