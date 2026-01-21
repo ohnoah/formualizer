@@ -1,0 +1,122 @@
+{
+  "name": "logical",
+  "generated": "2026-01-21T12:25:57.938817",
+  "generator": "LibreOffice",
+  "context_data": {},
+  "tests": [
+    {
+      "formula": "=TRUE",
+      "result": true,
+      "result_type": "bool",
+      "description": "true constant"
+    },
+    {
+      "formula": "=FALSE",
+      "result": false,
+      "result_type": "bool",
+      "description": "false constant"
+    },
+    {
+      "formula": "=AND(TRUE,TRUE)",
+      "result": true,
+      "result_type": "bool",
+      "description": "and true true"
+    },
+    {
+      "formula": "=AND(TRUE,FALSE)",
+      "result": false,
+      "result_type": "bool",
+      "description": "and true false"
+    },
+    {
+      "formula": "=OR(TRUE,FALSE)",
+      "result": true,
+      "result_type": "bool",
+      "description": "or true false"
+    },
+    {
+      "formula": "=OR(FALSE,FALSE)",
+      "result": false,
+      "result_type": "bool",
+      "description": "or false false"
+    },
+    {
+      "formula": "=NOT(TRUE)",
+      "result": false,
+      "result_type": "bool",
+      "description": "not true"
+    },
+    {
+      "formula": "=NOT(FALSE)",
+      "result": true,
+      "result_type": "bool",
+      "description": "not false"
+    },
+    {
+      "formula": "=XOR(TRUE,FALSE)",
+      "result": "#NAME?",
+      "result_type": "str",
+      "description": "xor true false"
+    },
+    {
+      "formula": "=XOR(TRUE,TRUE)",
+      "result": "#NAME?",
+      "result_type": "str",
+      "description": "xor true true"
+    },
+    {
+      "formula": "=IF(TRUE,1,2)",
+      "result": 1,
+      "result_type": "int",
+      "description": "if true"
+    },
+    {
+      "formula": "=IF(FALSE,1,2)",
+      "result": 2,
+      "result_type": "int",
+      "description": "if false"
+    },
+    {
+      "formula": "=IF(1>0,\"yes\",\"no\")",
+      "result": "yes",
+      "result_type": "str",
+      "description": "if with comparison"
+    },
+    {
+      "formula": "=IFS(FALSE,1,FALSE,2,TRUE,3)",
+      "result": "#NAME?",
+      "result_type": "str",
+      "description": "ifs multiple"
+    },
+    {
+      "formula": "=IFERROR(1/0,\"error\")",
+      "result": "error",
+      "result_type": "str",
+      "description": "iferror div by zero"
+    },
+    {
+      "formula": "=IFERROR(10/2,\"error\")",
+      "result": 5,
+      "result_type": "int",
+      "description": "iferror no error"
+    },
+    {
+      "formula": "=IFNA(NA(),\"missing\")",
+      "result": "missing",
+      "result_type": "str",
+      "description": "ifna catches NA and returns fallback"
+    },
+    {
+      "formula": "=SWITCH(2,1,\"one\",2,\"two\",3,\"three\")",
+      "result": "#NAME?",
+      "result_type": "str",
+      "description": "switch"
+    },
+    {
+      "formula": "=CHOOSE(2,\"a\",\"b\",\"c\")",
+      "result": "b",
+      "result_type": "str",
+      "description": "choose"
+    }
+  ]
+}

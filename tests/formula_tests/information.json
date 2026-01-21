@@ -1,0 +1,146 @@
+{
+  "name": "information",
+  "generated": "2026-01-21T12:26:12.115332",
+  "generator": "LibreOffice",
+  "context_data": {},
+  "tests": [
+    {
+      "formula": "=ISBLANK(\"\")",
+      "result": false,
+      "result_type": "bool",
+      "description": "isblank empty string"
+    },
+    {
+      "formula": "=ISBLANK(0)",
+      "result": false,
+      "result_type": "bool",
+      "description": "isblank zero"
+    },
+    {
+      "formula": "=ISERROR(1/0)",
+      "result": true,
+      "result_type": "bool",
+      "description": "iserror true"
+    },
+    {
+      "formula": "=ISERROR(1/1)",
+      "result": false,
+      "result_type": "bool",
+      "description": "iserror false"
+    },
+    {
+      "formula": "=ISNA(NA())",
+      "result": true,
+      "result_type": "bool",
+      "description": "isna true"
+    },
+    {
+      "formula": "=ISNA(1)",
+      "result": false,
+      "result_type": "bool",
+      "description": "isna false"
+    },
+    {
+      "formula": "=ISNUMBER(123)",
+      "result": true,
+      "result_type": "bool",
+      "description": "isnumber true"
+    },
+    {
+      "formula": "=ISNUMBER(\"123\")",
+      "result": false,
+      "result_type": "bool",
+      "description": "isnumber string"
+    },
+    {
+      "formula": "=ISTEXT(\"hello\")",
+      "result": true,
+      "result_type": "bool",
+      "description": "istext true"
+    },
+    {
+      "formula": "=ISTEXT(123)",
+      "result": false,
+      "result_type": "bool",
+      "description": "istext false"
+    },
+    {
+      "formula": "=ISLOGICAL(TRUE)",
+      "result": true,
+      "result_type": "bool",
+      "description": "islogical true"
+    },
+    {
+      "formula": "=ISLOGICAL(1)",
+      "result": false,
+      "result_type": "bool",
+      "description": "islogical number"
+    },
+    {
+      "formula": "=ISEVEN(4)",
+      "result": true,
+      "result_type": "bool",
+      "description": "iseven true"
+    },
+    {
+      "formula": "=ISEVEN(3)",
+      "result": false,
+      "result_type": "bool",
+      "description": "iseven false"
+    },
+    {
+      "formula": "=ISODD(3)",
+      "result": true,
+      "result_type": "bool",
+      "description": "isodd true"
+    },
+    {
+      "formula": "=ISODD(4)",
+      "result": false,
+      "result_type": "bool",
+      "description": "isodd false"
+    },
+    {
+      "formula": "=TYPE(1)",
+      "result": 1,
+      "result_type": "int",
+      "description": "type number"
+    },
+    {
+      "formula": "=TYPE(\"a\")",
+      "result": 2,
+      "result_type": "int",
+      "description": "type text"
+    },
+    {
+      "formula": "=TYPE(TRUE)",
+      "result": 1,
+      "result_type": "int",
+      "description": "type logical"
+    },
+    {
+      "formula": "=TYPE(1/0)",
+      "result": 16,
+      "result_type": "int",
+      "description": "type error"
+    },
+    {
+      "formula": "=NA()",
+      "result": "#N/A",
+      "result_type": "str",
+      "description": "na function"
+    },
+    {
+      "formula": "=ERROR.TYPE(1/0)",
+      "result": 2,
+      "result_type": "int",
+      "description": "error type div0"
+    },
+    {
+      "formula": "=ERROR.TYPE(NA())",
+      "result": 7,
+      "result_type": "int",
+      "description": "error type na"
+    }
+  ]
+}

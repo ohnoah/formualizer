@@ -1,0 +1,72 @@
+{
+  "name": "aggregate_with_context",
+  "generated": "2026-01-21T12:26:25.877622",
+  "generator": "LibreOffice",
+  "context_data": {
+    "A1": 1,
+    "A2": 2,
+    "A3": 3,
+    "A4": 4,
+    "A5": 5,
+    "B1": 10,
+    "B2": 8,
+    "B3": 6,
+    "B4": 4,
+    "B5": 2,
+    "C1": 100,
+    "C2": 200,
+    "C3": 300,
+    "C4": 400,
+    "C5": 500
+  },
+  "tests": [
+    {
+      "formula": "=SUM(Data!A1:A5)",
+      "result": 15,
+      "result_type": "int",
+      "description": "sum range"
+    },
+    {
+      "formula": "=AVERAGE(Data!A1:A5)",
+      "result": 3,
+      "result_type": "int",
+      "description": "average range"
+    },
+    {
+      "formula": "=SUMIF(Data!A1:A5,\">2\")",
+      "result": 12,
+      "result_type": "int",
+      "description": "sumif greater than"
+    },
+    {
+      "formula": "=SUMIF(Data!A1:A5,\"<>3\")",
+      "result": 12,
+      "result_type": "int",
+      "description": "sumif not equal"
+    },
+    {
+      "formula": "=COUNTIF(Data!A1:A5,\">2\")",
+      "result": 3,
+      "result_type": "int",
+      "description": "countif greater than"
+    },
+    {
+      "formula": "=AVERAGEIF(Data!A1:A5,\">2\")",
+      "result": 4,
+      "result_type": "int",
+      "description": "averageif"
+    },
+    {
+      "formula": "=SUMPRODUCT(Data!A1:A5,Data!B1:B5)",
+      "result": 70,
+      "result_type": "int",
+      "description": "sumproduct"
+    },
+    {
+      "formula": "=SUMIFS(Data!C1:C5,Data!A1:A5,\">2\",Data!B1:B5,\"<10\")",
+      "result": 1200,
+      "result_type": "int",
+      "description": "sumifs"
+    }
+  ]
+}

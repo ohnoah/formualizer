@@ -1,0 +1,98 @@
+{
+  "name": "comparison",
+  "generated": "2026-01-21T12:26:01.286261",
+  "generator": "LibreOffice",
+  "context_data": {},
+  "tests": [
+    {
+      "formula": "=1=1",
+      "result": true,
+      "result_type": "bool",
+      "description": "equal true"
+    },
+    {
+      "formula": "=1=2",
+      "result": false,
+      "result_type": "bool",
+      "description": "equal false"
+    },
+    {
+      "formula": "=1<>2",
+      "result": true,
+      "result_type": "bool",
+      "description": "not equal true"
+    },
+    {
+      "formula": "=1<>1",
+      "result": false,
+      "result_type": "bool",
+      "description": "not equal false"
+    },
+    {
+      "formula": "=1<2",
+      "result": true,
+      "result_type": "bool",
+      "description": "less than true"
+    },
+    {
+      "formula": "=2<1",
+      "result": false,
+      "result_type": "bool",
+      "description": "less than false"
+    },
+    {
+      "formula": "=2>1",
+      "result": true,
+      "result_type": "bool",
+      "description": "greater than true"
+    },
+    {
+      "formula": "=1>2",
+      "result": false,
+      "result_type": "bool",
+      "description": "greater than false"
+    },
+    {
+      "formula": "=1<=1",
+      "result": true,
+      "result_type": "bool",
+      "description": "less equal true"
+    },
+    {
+      "formula": "=2<=1",
+      "result": false,
+      "result_type": "bool",
+      "description": "less equal false"
+    },
+    {
+      "formula": "=1>=1",
+      "result": true,
+      "result_type": "bool",
+      "description": "greater equal true"
+    },
+    {
+      "formula": "=1>=2",
+      "result": false,
+      "result_type": "bool",
+      "description": "greater equal false"
+    },
+    {
+      "formula": "=\"abc\"=\"abc\"",
+      "result": true,
+      "result_type": "bool",
+      "description": "string equal"
+    },
+    {
+      "formula": "=\"abc\"=\"ABC\"",
+      "result": true,
+      "result_type": "bool",
+      "description": "string equal case"
+    },
+    {
+      "formula": "=\"a\"<\"b\"",
+      "result": true,
+      "result_type": "bool",
+      "description": "string less than"
+    }
+  ]
+}

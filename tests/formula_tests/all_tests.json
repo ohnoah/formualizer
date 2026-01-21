@@ -1,0 +1,1524 @@
+{
+  "math_basic": {
+    "name": "math_basic",
+    "generated": "2026-01-21T12:25:43.991184",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=1+2",
+        "result": 3,
+        "result_type": "int",
+        "description": "addition"
+      },
+      {
+        "formula": "=10-3",
+        "result": 7,
+        "result_type": "int",
+        "description": "subtraction"
+      },
+      {
+        "formula": "=4*5",
+        "result": 20,
+        "result_type": "int",
+        "description": "multiplication"
+      },
+      {
+        "formula": "=20/4",
+        "result": 5,
+        "result_type": "int",
+        "description": "division"
+      },
+      {
+        "formula": "=2^10",
+        "result": 1024,
+        "result_type": "int",
+        "description": "exponentiation"
+      },
+      {
+        "formula": "=17 MOD 5",
+        "result": "#VALUE!",
+        "result_type": "str",
+        "description": "modulo operator"
+      },
+      {
+        "formula": "=-5",
+        "result": -5,
+        "result_type": "int",
+        "description": "negation"
+      },
+      {
+        "formula": "=10%",
+        "result": 0.1,
+        "result_type": "float",
+        "description": "percentage"
+      },
+      {
+        "formula": "=(2+3)*4",
+        "result": 20,
+        "result_type": "int",
+        "description": "parentheses"
+      },
+      {
+        "formula": "=1+2*3",
+        "result": 7,
+        "result_type": "int",
+        "description": "operator precedence"
+      }
+    ]
+  },
+  "math_functions": {
+    "name": "math_functions",
+    "generated": "2026-01-21T12:25:47.605561",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=ABS(-5)",
+        "result": 5,
+        "result_type": "int",
+        "description": "absolute value"
+      },
+      {
+        "formula": "=ABS(5)",
+        "result": 5,
+        "result_type": "int",
+        "description": "absolute value positive"
+      },
+      {
+        "formula": "=SQRT(16)",
+        "result": 4,
+        "result_type": "int",
+        "description": "square root"
+      },
+      {
+        "formula": "=SQRT(2)",
+        "result": 1.4142135623731,
+        "result_type": "float",
+        "description": "square root irrational"
+      },
+      {
+        "formula": "=POWER(2,10)",
+        "result": 1024,
+        "result_type": "int",
+        "description": "power function"
+      },
+      {
+        "formula": "=EXP(1)",
+        "result": 2.71828182845905,
+        "result_type": "float",
+        "description": "e^1"
+      },
+      {
+        "formula": "=LN(2.718281828)",
+        "result": 0.999999999831127,
+        "result_type": "float",
+        "description": "natural log"
+      },
+      {
+        "formula": "=LOG(100)",
+        "result": 2,
+        "result_type": "int",
+        "description": "log base 10"
+      },
+      {
+        "formula": "=LOG(8,2)",
+        "result": 3,
+        "result_type": "int",
+        "description": "log base 2"
+      },
+      {
+        "formula": "=ROUND(3.14159,2)",
+        "result": 3.14,
+        "result_type": "float",
+        "description": "round to 2 decimals"
+      },
+      {
+        "formula": "=ROUND(3.5,0)",
+        "result": 4,
+        "result_type": "int",
+        "description": "round half"
+      },
+      {
+        "formula": "=ROUNDUP(3.1,0)",
+        "result": 4,
+        "result_type": "int",
+        "description": "round up"
+      },
+      {
+        "formula": "=ROUNDDOWN(3.9,0)",
+        "result": 3,
+        "result_type": "int",
+        "description": "round down"
+      },
+      {
+        "formula": "=CEILING(3.1,1)",
+        "result": 4,
+        "result_type": "int",
+        "description": "ceiling"
+      },
+      {
+        "formula": "=FLOOR(3.9,1)",
+        "result": 3,
+        "result_type": "int",
+        "description": "floor"
+      },
+      {
+        "formula": "=INT(3.9)",
+        "result": 3,
+        "result_type": "int",
+        "description": "integer part"
+      },
+      {
+        "formula": "=INT(-3.9)",
+        "result": -4,
+        "result_type": "int",
+        "description": "integer part negative"
+      },
+      {
+        "formula": "=TRUNC(3.9)",
+        "result": 3,
+        "result_type": "int",
+        "description": "truncate"
+      },
+      {
+        "formula": "=TRUNC(-3.9)",
+        "result": -3,
+        "result_type": "int",
+        "description": "truncate negative"
+      },
+      {
+        "formula": "=MOD(17,5)",
+        "result": 2,
+        "result_type": "int",
+        "description": "modulo function"
+      },
+      {
+        "formula": "=MOD(-17,5)",
+        "result": 3,
+        "result_type": "int",
+        "description": "modulo negative"
+      },
+      {
+        "formula": "=SIGN(-5)",
+        "result": -1,
+        "result_type": "int",
+        "description": "sign negative"
+      },
+      {
+        "formula": "=SIGN(5)",
+        "result": 1,
+        "result_type": "int",
+        "description": "sign positive"
+      },
+      {
+        "formula": "=SIGN(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "sign zero"
+      },
+      {
+        "formula": "=PI()",
+        "result": 3.14159265358979,
+        "result_type": "float",
+        "description": "pi constant"
+      },
+      {
+        "formula": "=RAND()>0",
+        "result": true,
+        "result_type": "bool",
+        "description": "random > 0"
+      },
+      {
+        "formula": "=RANDBETWEEN(1,10)>=1",
+        "result": true,
+        "result_type": "bool",
+        "description": "randbetween lower bound"
+      },
+      {
+        "formula": "=RANDBETWEEN(1,10)<=10",
+        "result": true,
+        "result_type": "bool",
+        "description": "randbetween upper bound"
+      },
+      {
+        "formula": "=GCD(12,18)",
+        "result": 6,
+        "result_type": "int",
+        "description": "greatest common divisor"
+      },
+      {
+        "formula": "=LCM(4,6)",
+        "result": 12,
+        "result_type": "int",
+        "description": "least common multiple"
+      },
+      {
+        "formula": "=FACT(5)",
+        "result": 120,
+        "result_type": "int",
+        "description": "factorial"
+      },
+      {
+        "formula": "=COMBIN(10,3)",
+        "result": 120,
+        "result_type": "int",
+        "description": "combinations"
+      },
+      {
+        "formula": "=PERMUT(10,3)",
+        "result": 720,
+        "result_type": "int",
+        "description": "permutations"
+      }
+    ]
+  },
+  "trigonometry": {
+    "name": "trigonometry",
+    "generated": "2026-01-21T12:25:51.132428",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=SIN(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "sin 0"
+      },
+      {
+        "formula": "=SIN(PI()/2)",
+        "result": 1,
+        "result_type": "int",
+        "description": "sin 90 deg"
+      },
+      {
+        "formula": "=COS(0)",
+        "result": 1,
+        "result_type": "int",
+        "description": "cos 0"
+      },
+      {
+        "formula": "=COS(PI())",
+        "result": -1,
+        "result_type": "int",
+        "description": "cos 180 deg"
+      },
+      {
+        "formula": "=TAN(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "tan 0"
+      },
+      {
+        "formula": "=TAN(PI()/4)",
+        "result": 1,
+        "result_type": "int",
+        "description": "tan 45 deg"
+      },
+      {
+        "formula": "=ASIN(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "arcsin 0"
+      },
+      {
+        "formula": "=ASIN(1)",
+        "result": 1.5707963267949,
+        "result_type": "float",
+        "description": "arcsin 1"
+      },
+      {
+        "formula": "=ACOS(1)",
+        "result": 0,
+        "result_type": "int",
+        "description": "arccos 1"
+      },
+      {
+        "formula": "=ACOS(0)",
+        "result": 1.5707963267949,
+        "result_type": "float",
+        "description": "arccos 0"
+      },
+      {
+        "formula": "=ATAN(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "arctan 0"
+      },
+      {
+        "formula": "=ATAN(1)",
+        "result": 0.785398163397448,
+        "result_type": "float",
+        "description": "arctan 1"
+      },
+      {
+        "formula": "=ATAN2(1,1)",
+        "result": 0.785398163397448,
+        "result_type": "float",
+        "description": "atan2"
+      },
+      {
+        "formula": "=DEGREES(PI())",
+        "result": 180,
+        "result_type": "int",
+        "description": "radians to degrees"
+      },
+      {
+        "formula": "=RADIANS(180)",
+        "result": 3.14159265358979,
+        "result_type": "float",
+        "description": "degrees to radians"
+      },
+      {
+        "formula": "=SINH(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "hyperbolic sin"
+      },
+      {
+        "formula": "=COSH(0)",
+        "result": 1,
+        "result_type": "int",
+        "description": "hyperbolic cos"
+      },
+      {
+        "formula": "=TANH(0)",
+        "result": 0,
+        "result_type": "int",
+        "description": "hyperbolic tan"
+      }
+    ]
+  },
+  "statistical": {
+    "name": "statistical",
+    "generated": "2026-01-21T12:25:54.442517",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=SUM(1,2,3,4,5)",
+        "result": 15,
+        "result_type": "int",
+        "description": "sum of values"
+      },
+      {
+        "formula": "=AVERAGE(1,2,3,4,5)",
+        "result": 3,
+        "result_type": "int",
+        "description": "average"
+      },
+      {
+        "formula": "=MEDIAN(1,2,3,4,5)",
+        "result": 3,
+        "result_type": "int",
+        "description": "median odd"
+      },
+      {
+        "formula": "=MEDIAN(1,2,3,4)",
+        "result": 2.5,
+        "result_type": "float",
+        "description": "median even"
+      },
+      {
+        "formula": "=MIN(5,2,8,1,9)",
+        "result": 1,
+        "result_type": "int",
+        "description": "minimum"
+      },
+      {
+        "formula": "=MAX(5,2,8,1,9)",
+        "result": 9,
+        "result_type": "int",
+        "description": "maximum"
+      },
+      {
+        "formula": "=COUNT(1,2,3,\"a\",TRUE)",
+        "result": 4,
+        "result_type": "int",
+        "description": "count numbers"
+      },
+      {
+        "formula": "=COUNTA(1,2,3,\"a\",TRUE)",
+        "result": 5,
+        "result_type": "int",
+        "description": "count non-empty"
+      },
+      {
+        "formula": "=COUNTBLANK(A1:A5)",
+        "result": 0,
+        "result_type": "int",
+        "description": "count blank",
+        "context": {"A1": 1, "A2": 2, "A3": 3, "A4": 4, "A5": 5}
+      },
+      {
+        "formula": "=PRODUCT(2,3,4)",
+        "result": 24,
+        "result_type": "int",
+        "description": "product"
+      },
+      {
+        "formula": "=STDEV(1,2,3,4,5)",
+        "result": 1.58113883008419,
+        "result_type": "float",
+        "description": "standard deviation sample"
+      },
+      {
+        "formula": "=STDEVP(1,2,3,4,5)",
+        "result": 1.4142135623731,
+        "result_type": "float",
+        "description": "standard deviation population"
+      },
+      {
+        "formula": "=VAR(1,2,3,4,5)",
+        "result": 2.5,
+        "result_type": "float",
+        "description": "variance sample"
+      },
+      {
+        "formula": "=VARP(1,2,3,4,5)",
+        "result": 2,
+        "result_type": "int",
+        "description": "variance population"
+      },
+      {
+        "formula": "=LARGE({5,2,8,1,9},1)",
+        "result": 9,
+        "result_type": "int",
+        "description": "1st largest"
+      },
+      {
+        "formula": "=LARGE({5,2,8,1,9},3)",
+        "result": 5,
+        "result_type": "int",
+        "description": "3rd largest"
+      },
+      {
+        "formula": "=SMALL({5,2,8,1,9},1)",
+        "result": 1,
+        "result_type": "int",
+        "description": "1st smallest"
+      },
+      {
+        "formula": "=SMALL({5,2,8,1,9},3)",
+        "result": 5,
+        "result_type": "int",
+        "description": "3rd smallest"
+      },
+      {
+        "formula": "=PERCENTILE({1,2,3,4,5},0.5)",
+        "result": 3,
+        "result_type": "int",
+        "description": "50th percentile"
+      },
+      {
+        "formula": "=QUARTILE({1,2,3,4,5},2)",
+        "result": 3,
+        "result_type": "int",
+        "description": "2nd quartile"
+      },
+      {
+        "formula": "=MODE(1,2,2,3,3,3)",
+        "result": 3,
+        "result_type": "int",
+        "description": "mode"
+      },
+      {
+        "formula": "=GEOMEAN(2,4,8)",
+        "result": 4,
+        "result_type": "int",
+        "description": "geometric mean"
+      },
+      {
+        "formula": "=HARMEAN(2,4,8)",
+        "result": 3.42857142857143,
+        "result_type": "float",
+        "description": "harmonic mean"
+      },
+      {
+        "formula": "=AVEDEV(1,2,3,4,5)",
+        "result": 1.2,
+        "result_type": "float",
+        "description": "average deviation"
+      },
+      {
+        "formula": "=DEVSQ(1,2,3,4,5)",
+        "result": 10,
+        "result_type": "int",
+        "description": "sum of squared deviations"
+      }
+    ]
+  },
+  "logical": {
+    "name": "logical",
+    "generated": "2026-01-21T12:25:57.938817",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=TRUE",
+        "result": true,
+        "result_type": "bool",
+        "description": "true constant"
+      },
+      {
+        "formula": "=FALSE",
+        "result": false,
+        "result_type": "bool",
+        "description": "false constant"
+      },
+      {
+        "formula": "=AND(TRUE,TRUE)",
+        "result": true,
+        "result_type": "bool",
+        "description": "and true true"
+      },
+      {
+        "formula": "=AND(TRUE,FALSE)",
+        "result": false,
+        "result_type": "bool",
+        "description": "and true false"
+      },
+      {
+        "formula": "=OR(TRUE,FALSE)",
+        "result": true,
+        "result_type": "bool",
+        "description": "or true false"
+      },
+      {
+        "formula": "=OR(FALSE,FALSE)",
+        "result": false,
+        "result_type": "bool",
+        "description": "or false false"
+      },
+      {
+        "formula": "=NOT(TRUE)",
+        "result": false,
+        "result_type": "bool",
+        "description": "not true"
+      },
+      {
+        "formula": "=NOT(FALSE)",
+        "result": true,
+        "result_type": "bool",
+        "description": "not false"
+      },
+      {
+        "formula": "=XOR(TRUE,FALSE)",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "xor true false"
+      },
+      {
+        "formula": "=XOR(TRUE,TRUE)",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "xor true true"
+      },
+      {
+        "formula": "=IF(TRUE,1,2)",
+        "result": 1,
+        "result_type": "int",
+        "description": "if true"
+      },
+      {
+        "formula": "=IF(FALSE,1,2)",
+        "result": 2,
+        "result_type": "int",
+        "description": "if false"
+      },
+      {
+        "formula": "=IF(1>0,\"yes\",\"no\")",
+        "result": "yes",
+        "result_type": "str",
+        "description": "if with comparison"
+      },
+      {
+        "formula": "=IFS(FALSE,1,FALSE,2,TRUE,3)",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "ifs multiple"
+      },
+      {
+        "formula": "=IFERROR(1/0,\"error\")",
+        "result": "error",
+        "result_type": "str",
+        "description": "iferror div by zero"
+      },
+      {
+        "formula": "=IFERROR(10/2,\"error\")",
+        "result": 5,
+        "result_type": "int",
+        "description": "iferror no error"
+      },
+      {
+        "formula": "=IFNA(NA(),\"missing\")",
+        "result": "missing",
+        "result_type": "str",
+        "description": "ifna catches NA and returns fallback"
+      },
+      {
+        "formula": "=SWITCH(2,1,\"one\",2,\"two\",3,\"three\")",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "switch"
+      },
+      {
+        "formula": "=CHOOSE(2,\"a\",\"b\",\"c\")",
+        "result": "b",
+        "result_type": "str",
+        "description": "choose"
+      }
+    ]
+  },
+  "comparison": {
+    "name": "comparison",
+    "generated": "2026-01-21T12:26:01.286261",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=1=1",
+        "result": true,
+        "result_type": "bool",
+        "description": "equal true"
+      },
+      {
+        "formula": "=1=2",
+        "result": false,
+        "result_type": "bool",
+        "description": "equal false"
+      },
+      {
+        "formula": "=1<>2",
+        "result": true,
+        "result_type": "bool",
+        "description": "not equal true"
+      },
+      {
+        "formula": "=1<>1",
+        "result": false,
+        "result_type": "bool",
+        "description": "not equal false"
+      },
+      {
+        "formula": "=1<2",
+        "result": true,
+        "result_type": "bool",
+        "description": "less than true"
+      },
+      {
+        "formula": "=2<1",
+        "result": false,
+        "result_type": "bool",
+        "description": "less than false"
+      },
+      {
+        "formula": "=2>1",
+        "result": true,
+        "result_type": "bool",
+        "description": "greater than true"
+      },
+      {
+        "formula": "=1>2",
+        "result": false,
+        "result_type": "bool",
+        "description": "greater than false"
+      },
+      {
+        "formula": "=1<=1",
+        "result": true,
+        "result_type": "bool",
+        "description": "less equal true"
+      },
+      {
+        "formula": "=2<=1",
+        "result": false,
+        "result_type": "bool",
+        "description": "less equal false"
+      },
+      {
+        "formula": "=1>=1",
+        "result": true,
+        "result_type": "bool",
+        "description": "greater equal true"
+      },
+      {
+        "formula": "=1>=2",
+        "result": false,
+        "result_type": "bool",
+        "description": "greater equal false"
+      },
+      {
+        "formula": "=\"abc\"=\"abc\"",
+        "result": true,
+        "result_type": "bool",
+        "description": "string equal"
+      },
+      {
+        "formula": "=\"abc\"=\"ABC\"",
+        "result": true,
+        "result_type": "bool",
+        "description": "string equal case"
+      },
+      {
+        "formula": "=\"a\"<\"b\"",
+        "result": true,
+        "result_type": "bool",
+        "description": "string less than"
+      }
+    ]
+  },
+  "text": {
+    "name": "text",
+    "generated": "2026-01-21T12:26:04.659281",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=LEN(\"hello\")",
+        "result": 5,
+        "result_type": "int",
+        "description": "string length"
+      },
+      {
+        "formula": "=LEFT(\"hello\",2)",
+        "result": "he",
+        "result_type": "str",
+        "description": "left 2 chars"
+      },
+      {
+        "formula": "=RIGHT(\"hello\",2)",
+        "result": "lo",
+        "result_type": "str",
+        "description": "right 2 chars"
+      },
+      {
+        "formula": "=MID(\"hello\",2,3)",
+        "result": "ell",
+        "result_type": "str",
+        "description": "mid substring"
+      },
+      {
+        "formula": "=UPPER(\"hello\")",
+        "result": "HELLO",
+        "result_type": "str",
+        "description": "uppercase"
+      },
+      {
+        "formula": "=LOWER(\"HELLO\")",
+        "result": "hello",
+        "result_type": "str",
+        "description": "lowercase"
+      },
+      {
+        "formula": "=PROPER(\"hello world\")",
+        "result": "Hello World",
+        "result_type": "str",
+        "description": "proper case"
+      },
+      {
+        "formula": "=TRIM(\"  hello  \")",
+        "result": "hello",
+        "result_type": "str",
+        "description": "trim spaces"
+      },
+      {
+        "formula": "=CONCATENATE(\"a\",\"b\",\"c\")",
+        "result": "abc",
+        "result_type": "str",
+        "description": "concatenate"
+      },
+      {
+        "formula": "=\"a\"&\"b\"&\"c\"",
+        "result": "abc",
+        "result_type": "str",
+        "description": "concat operator"
+      },
+      {
+        "formula": "=CONCAT(\"a\",\"b\",\"c\")",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "concat function"
+      },
+      {
+        "formula": "=TEXTJOIN(\"-\",TRUE,\"a\",\"b\",\"c\")",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "textjoin"
+      },
+      {
+        "formula": "=REPT(\"ab\",3)",
+        "result": "ababab",
+        "result_type": "str",
+        "description": "repeat string"
+      },
+      {
+        "formula": "=SUBSTITUTE(\"hello\",\"l\",\"L\")",
+        "result": "heLLo",
+        "result_type": "str",
+        "description": "substitute"
+      },
+      {
+        "formula": "=REPLACE(\"hello\",2,3,\"XYZ\")",
+        "result": "hXYZo",
+        "result_type": "str",
+        "description": "replace"
+      },
+      {
+        "formula": "=FIND(\"l\",\"hello\")",
+        "result": 3,
+        "result_type": "int",
+        "description": "find case sensitive"
+      },
+      {
+        "formula": "=SEARCH(\"L\",\"hello\")",
+        "result": 3,
+        "result_type": "int",
+        "description": "search case insensitive"
+      },
+      {
+        "formula": "=TEXT(1234.5,\"#,##0.00\")",
+        "result": "1,234.50",
+        "result_type": "str",
+        "description": "text format number"
+      },
+      {
+        "formula": "=VALUE(\"123.45\")",
+        "result": 123.45,
+        "result_type": "float",
+        "description": "value from string"
+      },
+      {
+        "formula": "=T(123)",
+        "result": null,
+        "result_type": "NoneType",
+        "description": "t function number"
+      },
+      {
+        "formula": "=T(\"hello\")",
+        "result": "hello",
+        "result_type": "str",
+        "description": "t function string"
+      },
+      {
+        "formula": "=N(TRUE)",
+        "result": 1,
+        "result_type": "int",
+        "description": "n function bool"
+      },
+      {
+        "formula": "=N(\"hello\")",
+        "result": 0,
+        "result_type": "int",
+        "description": "n function string"
+      },
+      {
+        "formula": "=CHAR(65)",
+        "result": "A",
+        "result_type": "str",
+        "description": "char from code"
+      },
+      {
+        "formula": "=CODE(\"A\")",
+        "result": 65,
+        "result_type": "int",
+        "description": "code from char"
+      },
+      {
+        "formula": "=EXACT(\"Hello\",\"hello\")",
+        "result": false,
+        "result_type": "bool",
+        "description": "exact match"
+      },
+      {
+        "formula": "=EXACT(\"Hello\",\"Hello\")",
+        "result": true,
+        "result_type": "bool",
+        "description": "exact match true"
+      }
+    ]
+  },
+  "date_time": {
+    "name": "date_time",
+    "generated": "2026-01-21T12:26:08.314484",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=DATE(2024,6,15)",
+        "result": {
+          "type": "datetime",
+          "value": "2024-06-15T00:00:00"
+        },
+        "result_type": "datetime",
+        "description": "create date"
+      },
+      {
+        "formula": "=YEAR(DATE(2024,6,15))",
+        "result": 2024,
+        "result_type": "int",
+        "description": "extract year"
+      },
+      {
+        "formula": "=MONTH(DATE(2024,6,15))",
+        "result": 6,
+        "result_type": "int",
+        "description": "extract month"
+      },
+      {
+        "formula": "=DAY(DATE(2024,6,15))",
+        "result": 15,
+        "result_type": "int",
+        "description": "extract day"
+      },
+      {
+        "formula": "=WEEKDAY(DATE(2024,6,15))",
+        "result": 7,
+        "result_type": "int",
+        "description": "weekday"
+      },
+      {
+        "formula": "=WEEKNUM(DATE(2024,6,15))",
+        "result": 24,
+        "result_type": "int",
+        "description": "week number"
+      },
+      {
+        "formula": "=EOMONTH(DATE(2024,6,15),0)",
+        "result": 45473,
+        "result_type": "int",
+        "description": "end of month"
+      },
+      {
+        "formula": "=EOMONTH(DATE(2024,6,15),1)",
+        "result": 45504,
+        "result_type": "int",
+        "description": "end of next month"
+      },
+      {
+        "formula": "=EDATE(DATE(2024,6,15),3)",
+        "result": 45550,
+        "result_type": "int",
+        "description": "add 3 months"
+      },
+      {
+        "formula": "=DAYS(DATE(2024,12,31),DATE(2024,1,1))",
+        "result": "#NAME?",
+        "result_type": "str",
+        "description": "days between"
+      },
+      {
+        "formula": "=DATEDIF(DATE(2020,1,1),DATE(2024,6,15),\"Y\")",
+        "result": 4,
+        "result_type": "int",
+        "description": "years between"
+      },
+      {
+        "formula": "=DATEDIF(DATE(2020,1,1),DATE(2024,6,15),\"M\")",
+        "result": 53,
+        "result_type": "int",
+        "description": "months between"
+      },
+      {
+        "formula": "=DATEDIF(DATE(2020,1,1),DATE(2024,6,15),\"D\")",
+        "result": 1627,
+        "result_type": "int",
+        "description": "days between datedif"
+      },
+      {
+        "formula": "=NETWORKDAYS(DATE(2024,1,1),DATE(2024,1,31))",
+        "result": 23,
+        "result_type": "int",
+        "description": "network days"
+      },
+      {
+        "formula": "=WORKDAY(DATE(2024,1,1),10)",
+        "result": 45306,
+        "result_type": "int",
+        "description": "workday"
+      },
+      {
+        "formula": "=TIME(14,30,0)",
+        "result": 0.604166666666667,
+        "result_type": "float",
+        "description": "create time"
+      },
+      {
+        "formula": "=HOUR(TIME(14,30,45))",
+        "result": 14,
+        "result_type": "int",
+        "description": "extract hour"
+      },
+      {
+        "formula": "=MINUTE(TIME(14,30,45))",
+        "result": 30,
+        "result_type": "int",
+        "description": "extract minute"
+      },
+      {
+        "formula": "=SECOND(TIME(14,30,45))",
+        "result": 45,
+        "result_type": "int",
+        "description": "extract second"
+      },
+      {
+        "formula": "=DATEVALUE(\"2024-06-15\")",
+        "result": 45458,
+        "result_type": "int",
+        "description": "datevalue"
+      },
+      {
+        "formula": "=TIMEVALUE(\"14:30:00\")",
+        "result": 0.604166666666667,
+        "result_type": "float",
+        "description": "timevalue"
+      }
+    ]
+  },
+  "information": {
+    "name": "information",
+    "generated": "2026-01-21T12:26:12.115332",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=ISBLANK(\"\")",
+        "result": false,
+        "result_type": "bool",
+        "description": "isblank empty string"
+      },
+      {
+        "formula": "=ISBLANK(0)",
+        "result": false,
+        "result_type": "bool",
+        "description": "isblank zero"
+      },
+      {
+        "formula": "=ISERROR(1/0)",
+        "result": true,
+        "result_type": "bool",
+        "description": "iserror true"
+      },
+      {
+        "formula": "=ISERROR(1/1)",
+        "result": false,
+        "result_type": "bool",
+        "description": "iserror false"
+      },
+      {
+        "formula": "=ISNA(NA())",
+        "result": true,
+        "result_type": "bool",
+        "description": "isna true"
+      },
+      {
+        "formula": "=ISNA(1)",
+        "result": false,
+        "result_type": "bool",
+        "description": "isna false"
+      },
+      {
+        "formula": "=ISNUMBER(123)",
+        "result": true,
+        "result_type": "bool",
+        "description": "isnumber true"
+      },
+      {
+        "formula": "=ISNUMBER(\"123\")",
+        "result": false,
+        "result_type": "bool",
+        "description": "isnumber string"
+      },
+      {
+        "formula": "=ISTEXT(\"hello\")",
+        "result": true,
+        "result_type": "bool",
+        "description": "istext true"
+      },
+      {
+        "formula": "=ISTEXT(123)",
+        "result": false,
+        "result_type": "bool",
+        "description": "istext false"
+      },
+      {
+        "formula": "=ISLOGICAL(TRUE)",
+        "result": true,
+        "result_type": "bool",
+        "description": "islogical true"
+      },
+      {
+        "formula": "=ISLOGICAL(1)",
+        "result": false,
+        "result_type": "bool",
+        "description": "islogical number"
+      },
+      {
+        "formula": "=ISEVEN(4)",
+        "result": true,
+        "result_type": "bool",
+        "description": "iseven true"
+      },
+      {
+        "formula": "=ISEVEN(3)",
+        "result": false,
+        "result_type": "bool",
+        "description": "iseven false"
+      },
+      {
+        "formula": "=ISODD(3)",
+        "result": true,
+        "result_type": "bool",
+        "description": "isodd true"
+      },
+      {
+        "formula": "=ISODD(4)",
+        "result": false,
+        "result_type": "bool",
+        "description": "isodd false"
+      },
+      {
+        "formula": "=TYPE(1)",
+        "result": 1,
+        "result_type": "int",
+        "description": "type number"
+      },
+      {
+        "formula": "=TYPE(\"a\")",
+        "result": 2,
+        "result_type": "int",
+        "description": "type text"
+      },
+      {
+        "formula": "=TYPE(TRUE)",
+        "result": 1,
+        "result_type": "int",
+        "description": "type logical"
+      },
+      {
+        "formula": "=TYPE(1/0)",
+        "result": 16,
+        "result_type": "int",
+        "description": "type error"
+      },
+      {
+        "formula": "=NA()",
+        "result": "#N/A",
+        "result_type": "str",
+        "description": "na function"
+      },
+      {
+        "formula": "=ERROR.TYPE(1/0)",
+        "result": 2,
+        "result_type": "int",
+        "description": "error type div0"
+      },
+      {
+        "formula": "=ERROR.TYPE(NA())",
+        "result": 7,
+        "result_type": "int",
+        "description": "error type na"
+      }
+    ]
+  },
+  "lookup": {
+    "name": "lookup",
+    "generated": "2026-01-21T12:26:15.793540",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=VLOOKUP(2,{1,\"a\";2,\"b\";3,\"c\"},2,FALSE)",
+        "result": "b",
+        "result_type": "str",
+        "description": "vlookup exact"
+      },
+      {
+        "formula": "=HLOOKUP(2,{1,2,3;\"a\",\"b\",\"c\"},2,FALSE)",
+        "result": "b",
+        "result_type": "str",
+        "description": "hlookup exact"
+      },
+      {
+        "formula": "=INDEX({1,2,3;4,5,6;7,8,9},2,3)",
+        "result": 6,
+        "result_type": "int",
+        "description": "index 2d"
+      },
+      {
+        "formula": "=MATCH(3,{1,2,3,4,5},0)",
+        "result": 3,
+        "result_type": "int",
+        "description": "match exact"
+      },
+      {
+        "formula": "=MATCH(3.5,{1,2,3,4,5},1)",
+        "result": 3,
+        "result_type": "int",
+        "description": "match approx"
+      },
+      {
+        "formula": "=CHOOSE(2,\"a\",\"b\",\"c\",\"d\")",
+        "result": "b",
+        "result_type": "str",
+        "description": "choose"
+      },
+      {
+        "formula": "=ROW(A5)",
+        "result": 5,
+        "result_type": "int",
+        "description": "row function"
+      },
+      {
+        "formula": "=COLUMN(E1)",
+        "result": 5,
+        "result_type": "int",
+        "description": "column function"
+      },
+      {
+        "formula": "=ROWS({1,2,3;4,5,6})",
+        "result": 2,
+        "result_type": "int",
+        "description": "rows count"
+      },
+      {
+        "formula": "=COLUMNS({1,2,3;4,5,6})",
+        "result": 3,
+        "result_type": "int",
+        "description": "columns count"
+      },
+      {
+        "formula": "=ADDRESS(1,1)",
+        "result": "$A$1",
+        "result_type": "str",
+        "description": "address"
+      },
+      {
+        "formula": "=ADDRESS(1,1,4)",
+        "result": "A1",
+        "result_type": "str",
+        "description": "address relative"
+      }
+    ]
+  },
+  "financial": {
+    "name": "financial",
+    "generated": "2026-01-21T12:26:19.208335",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=PMT(0.05/12,360,200000)",
+        "result": -1073.64324602428,
+        "result_type": "float",
+        "description": "monthly payment"
+      },
+      {
+        "formula": "=PV(0.05/12,360,-1073.64)",
+        "result": 199999.395325348,
+        "result_type": "float",
+        "description": "present value"
+      },
+      {
+        "formula": "=FV(0.05/12,360,-500)",
+        "result": 416129.317680733,
+        "result_type": "float",
+        "description": "future value"
+      },
+      {
+        "formula": "=NPV(0.1,{-10000,3000,4200,6800})",
+        "result": 1188.44341233522,
+        "result_type": "float",
+        "description": "npv"
+      },
+      {
+        "formula": "=NPER(0.05/12,-500,0,50000)",
+        "result": 83.7676392829766,
+        "result_type": "float",
+        "description": "periods"
+      },
+      {
+        "formula": "=RATE(360,-1073.64,200000)",
+        "result": 0.00416664453635995,
+        "result_type": "float",
+        "description": "rate"
+      },
+      {
+        "formula": "=IPMT(0.05/12,1,360,200000)",
+        "result": -833.333333333333,
+        "result_type": "float",
+        "description": "interest payment"
+      },
+      {
+        "formula": "=PPMT(0.05/12,1,360,200000)",
+        "result": -240.309912690945,
+        "result_type": "float",
+        "description": "principal payment"
+      },
+      {
+        "formula": "=SLN(10000,1000,5)",
+        "result": 1800,
+        "result_type": "int",
+        "description": "straight line depreciation"
+      },
+      {
+        "formula": "=SYD(10000,1000,5,1)",
+        "result": 3000,
+        "result_type": "int",
+        "description": "sum of years depreciation"
+      },
+      {
+        "formula": "=DB(10000,1000,5,1)",
+        "result": 3690,
+        "result_type": "int",
+        "description": "declining balance"
+      },
+      {
+        "formula": "=DDB(10000,1000,5,1)",
+        "result": 4000,
+        "result_type": "int",
+        "description": "double declining balance"
+      }
+    ]
+  },
+  "errors": {
+    "name": "errors",
+    "generated": "2026-01-21T12:26:22.408763",
+    "generator": "LibreOffice",
+    "context_data": {},
+    "tests": [
+      {
+        "formula": "=1/0",
+        "result": "#DIV/0!",
+        "result_type": "str",
+        "description": "division by zero"
+      },
+      {
+        "formula": "=SQRT(-1)",
+        "result": "#VALUE!",
+        "result_type": "str",
+        "description": "sqrt negative"
+      },
+      {
+        "formula": "=LOG(-1)",
+        "result": "#VALUE!",
+        "result_type": "str",
+        "description": "log negative"
+      },
+      {
+        "formula": "=ASIN(2)",
+        "result": "#NUM!",
+        "result_type": "str",
+        "description": "asin out of range"
+      },
+      {
+        "formula": "=0^0",
+        "result": 1,
+        "result_type": "int",
+        "description": "zero to zero power"
+      },
+      {
+        "formula": "=1+\"text\"",
+        "result": "#VALUE!",
+        "result_type": "str",
+        "description": "type mismatch"
+      },
+      {
+        "formula": "=VLOOKUP(999,{1,\"a\";2,\"b\"},2,FALSE)",
+        "result": "#N/A",
+        "result_type": "str",
+        "description": "vlookup not found"
+      },
+      {
+        "formula": "=INDEX({1,2,3},10)",
+        "result": "#REF!",
+        "result_type": "str",
+        "description": "index out of bounds"
+      },
+      {
+        "formula": "=MATCH(999,{1,2,3},0)",
+        "result": "#N/A",
+        "result_type": "str",
+        "description": "match not found"
+      },
+      {
+        "formula": "=NA()",
+        "result": "#N/A",
+        "result_type": "str",
+        "description": "explicit na"
+      }
+    ]
+  },
+  "aggregate_with_context": {
+    "name": "aggregate_with_context",
+    "generated": "2026-01-21T12:26:25.877622",
+    "generator": "LibreOffice",
+    "context_data": {
+      "A1": 1,
+      "A2": 2,
+      "A3": 3,
+      "A4": 4,
+      "A5": 5,
+      "B1": 10,
+      "B2": 8,
+      "B3": 6,
+      "B4": 4,
+      "B5": 2,
+      "C1": 100,
+      "C2": 200,
+      "C3": 300,
+      "C4": 400,
+      "C5": 500
+    },
+    "tests": [
+      {
+        "formula": "=SUM(Data!A1:A5)",
+        "result": 15,
+        "result_type": "int",
+        "description": "sum range"
+      },
+      {
+        "formula": "=AVERAGE(Data!A1:A5)",
+        "result": 3,
+        "result_type": "int",
+        "description": "average range"
+      },
+      {
+        "formula": "=SUMIF(Data!A1:A5,\">2\")",
+        "result": 12,
+        "result_type": "int",
+        "description": "sumif greater than"
+      },
+      {
+        "formula": "=SUMIF(Data!A1:A5,\"<>3\")",
+        "result": 12,
+        "result_type": "int",
+        "description": "sumif not equal"
+      },
+      {
+        "formula": "=COUNTIF(Data!A1:A5,\">2\")",
+        "result": 3,
+        "result_type": "int",
+        "description": "countif greater than"
+      },
+      {
+        "formula": "=AVERAGEIF(Data!A1:A5,\">2\")",
+        "result": 4,
+        "result_type": "int",
+        "description": "averageif"
+      },
+      {
+        "formula": "=SUMPRODUCT(Data!A1:A5,Data!B1:B5)",
+        "result": 70,
+        "result_type": "int",
+        "description": "sumproduct"
+      },
+      {
+        "formula": "=SUMIFS(Data!C1:C5,Data!A1:A5,\">2\",Data!B1:B5,\"<10\")",
+        "result": 1200,
+        "result_type": "int",
+        "description": "sumifs"
+      }
+    ]
+  }
+}

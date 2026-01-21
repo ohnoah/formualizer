@@ -1,0 +1,116 @@
+{
+  "name": "trigonometry",
+  "generated": "2026-01-21T12:25:51.132428",
+  "generator": "LibreOffice",
+  "context_data": {},
+  "tests": [
+    {
+      "formula": "=SIN(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "sin 0"
+    },
+    {
+      "formula": "=SIN(PI()/2)",
+      "result": 1,
+      "result_type": "int",
+      "description": "sin 90 deg"
+    },
+    {
+      "formula": "=COS(0)",
+      "result": 1,
+      "result_type": "int",
+      "description": "cos 0"
+    },
+    {
+      "formula": "=COS(PI())",
+      "result": -1,
+      "result_type": "int",
+      "description": "cos 180 deg"
+    },
+    {
+      "formula": "=TAN(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "tan 0"
+    },
+    {
+      "formula": "=TAN(PI()/4)",
+      "result": 1,
+      "result_type": "int",
+      "description": "tan 45 deg"
+    },
+    {
+      "formula": "=ASIN(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "arcsin 0"
+    },
+    {
+      "formula": "=ASIN(1)",
+      "result": 1.5707963267949,
+      "result_type": "float",
+      "description": "arcsin 1"
+    },
+    {
+      "formula": "=ACOS(1)",
+      "result": 0,
+      "result_type": "int",
+      "description": "arccos 1"
+    },
+    {
+      "formula": "=ACOS(0)",
+      "result": 1.5707963267949,
+      "result_type": "float",
+      "description": "arccos 0"
+    },
+    {
+      "formula": "=ATAN(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "arctan 0"
+    },
+    {
+      "formula": "=ATAN(1)",
+      "result": 0.785398163397448,
+      "result_type": "float",
+      "description": "arctan 1"
+    },
+    {
+      "formula": "=ATAN2(1,1)",
+      "result": 0.785398163397448,
+      "result_type": "float",
+      "description": "atan2"
+    },
+    {
+      "formula": "=DEGREES(PI())",
+      "result": 180,
+      "result_type": "int",
+      "description": "radians to degrees"
+    },
+    {
+      "formula": "=RADIANS(180)",
+      "result": 3.14159265358979,
+      "result_type": "float",
+      "description": "degrees to radians"
+    },
+    {
+      "formula": "=SINH(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "hyperbolic sin"
+    },
+    {
+      "formula": "=COSH(0)",
+      "result": 1,
+      "result_type": "int",
+      "description": "hyperbolic cos"
+    },
+    {
+      "formula": "=TANH(0)",
+      "result": 0,
+      "result_type": "int",
+      "description": "hyperbolic tan"
+    }
+  ]
+}

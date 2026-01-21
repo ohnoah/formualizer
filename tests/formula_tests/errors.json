@@ -1,0 +1,68 @@
+{
+  "name": "errors",
+  "generated": "2026-01-21T12:26:22.408763",
+  "generator": "LibreOffice",
+  "context_data": {},
+  "tests": [
+    {
+      "formula": "=1/0",
+      "result": "#DIV/0!",
+      "result_type": "str",
+      "description": "division by zero"
+    },
+    {
+      "formula": "=SQRT(-1)",
+      "result": "#VALUE!",
+      "result_type": "str",
+      "description": "sqrt negative"
+    },
+    {
+      "formula": "=LOG(-1)",
+      "result": "#VALUE!",
+      "result_type": "str",
+      "description": "log negative"
+    },
+    {
+      "formula": "=ASIN(2)",
+      "result": "#NUM!",
+      "result_type": "str",
+      "description": "asin out of range"
+    },
+    {
+      "formula": "=0^0",
+      "result": 1,
+      "result_type": "int",
+      "description": "zero to zero power"
+    },
+    {
+      "formula": "=1+\"text\"",
+      "result": "#VALUE!",
+      "result_type": "str",
+      "description": "type mismatch"
+    },
+    {
+      "formula": "=VLOOKUP(999,{1,\"a\";2,\"b\"},2,FALSE)",
+      "result": "#N/A",
+      "result_type": "str",
+      "description": "vlookup not found"
+    },
+    {
+      "formula": "=INDEX({1,2,3},10)",
+      "result": "#REF!",
+      "result_type": "str",
+      "description": "index out of bounds"
+    },
+    {
+      "formula": "=MATCH(999,{1,2,3},0)",
+      "result": "#N/A",
+      "result_type": "str",
+      "description": "match not found"
+    },
+    {
+      "formula": "=NA()",
+      "result": "#N/A",
+      "result_type": "str",
+      "description": "explicit na"
+    }
+  ]
+}
