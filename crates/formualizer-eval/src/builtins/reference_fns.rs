@@ -31,7 +31,17 @@ fn arg_byref_array() -> Vec<ArgSchema> {
             default: None,
         },
         number_strict_scalar(),
-        number_strict_scalar(),
+        // Column is optional for 1D arrays
+        ArgSchema {
+            kinds: smallvec::smallvec![ArgKind::Number],
+            required: false,
+            by_ref: false,
+            shape: ShapeKind::Scalar,
+            coercion: CoercionPolicy::NumberStrict,
+            max: None,
+            repeating: None,
+            default: None,
+        },
     ]
 }
 
@@ -84,7 +94,7 @@ impl Function for IndexFn {
         "INDEX"
     }
     fn min_args(&self) -> usize {
-        3
+        2
     }
     fn arg_schema(&self) -> &'static [ArgSchema] {
         use once_cell::sync::Lazy;
@@ -97,8 +107,8 @@ impl Function for IndexFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         _ctx: &dyn FunctionContext<'b>,
     ) -> Option<Result<ReferenceType, ExcelError>> {
-        // args: array(by_ref), row, col
-        if args.len() < 3 {
+        // args: array(by_ref), row, col (col optional for 1D)
+        if args.len() < 2 {
             return Some(Err(ExcelError::new(ExcelErrorKind::Value)));
         }
         // Return None for array literals so eval() handles them
@@ -114,13 +124,17 @@ impl Function for IndexFn {
             },
             Err(e) => return Some(Err(e)),
         };
-        let col = match args[2].value() {
-            Ok(cv) => match cv.into_literal() {
-                LiteralValue::Number(n) => n as i64,
-                LiteralValue::Int(i) => i,
-                _ => return Some(Err(ExcelError::new(ExcelErrorKind::Value))),
-            },
-            Err(e) => return Some(Err(e)),
+        let col = if args.len() >= 3 {
+            match args[2].value() {
+                Ok(cv) => match cv.into_literal() {
+                    LiteralValue::Number(n) => n as i64,
+                    LiteralValue::Int(i) => i,
+                    _ => return Some(Err(ExcelError::new(ExcelErrorKind::Value))),
+                },
+                Err(e) => return Some(Err(e)),
+            }
+        } else {
+            1 // Default to column 1 for 1D arrays
         };
 
         // Only Range supported for now
@@ -184,7 +198,7 @@ impl Function for IndexFn {
             }
         } else {
             // Handle array literal
-            if args.len() < 3 {
+            if args.len() < 2 {
                 return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
                     ExcelError::new(ExcelErrorKind::Value),
                 )));
@@ -194,23 +208,52 @@ impl Function for IndexFn {
                 LiteralValue::Array(rows) => rows,
                 other => vec![vec![other]],
             };
-            let row = match args[1].value()?.into_literal() {
-                LiteralValue::Number(n) => n as usize,
-                LiteralValue::Int(i) => i as usize,
+            let index = match args[1].value()?.into_literal() {
+                LiteralValue::Number(n) => n as i64,
+                LiteralValue::Int(i) => i,
                 _ => {
                     return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
                         ExcelError::new(ExcelErrorKind::Value),
                     )));
                 }
             };
-            let col = match args[2].value()?.into_literal() {
-                LiteralValue::Number(n) => n as usize,
-                LiteralValue::Int(i) => i as usize,
-                _ => {
+
+            // Determine if this is a 1D array (single row or single column)
+            let is_single_row = table.len() == 1;
+            let is_single_col = table.iter().all(|r| r.len() == 1);
+
+            // For 1D arrays with 2 args, index is position in the array
+            if args.len() == 2 && (is_single_row || is_single_col) {
+                if index <= 0 {
                     return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
-                        ExcelError::new(ExcelErrorKind::Value),
+                        ExcelError::new(ExcelErrorKind::Ref),
                     )));
                 }
+                let idx = (index - 1) as usize;
+                let val = if is_single_row {
+                    table[0].get(idx).cloned()
+                } else {
+                    table.get(idx).and_then(|r| r.first()).cloned()
+                };
+                return Ok(crate::traits::CalcValue::Scalar(
+                    val.unwrap_or_else(|| LiteralValue::Error(ExcelError::new(ExcelErrorKind::Ref)))
+                ));
+            }
+
+            // 2D array or 3 arguments: use row and col indexing
+            let row = index as usize;
+            let col = if args.len() >= 3 {
+                match args[2].value()?.into_literal() {
+                    LiteralValue::Number(n) => n as usize,
+                    LiteralValue::Int(i) => i as usize,
+                    _ => {
+                        return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                            ExcelError::new(ExcelErrorKind::Value),
+                        )));
+                    }
+                }
+            } else {
+                1 // Default to column 1
             };
 
             // 1-based indexing
